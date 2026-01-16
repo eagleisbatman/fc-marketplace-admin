@@ -35,11 +35,12 @@ import {
   type SyncResult
 } from "@/lib/api";
 
-// Expected counts from India Data Portal
+// Expected counts based on seeded LGD data (from GitHub: planemad/india-local-government-directory)
+// Note: This is the complete official data - no additional sync needed
 const EXPECTED_COUNTS = {
   districts: 765,
-  blocks: 7245,
-  villages: 690499,
+  blocks: 7226,
+  villages: 642419,
 };
 
 type State = {
