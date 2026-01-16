@@ -10,8 +10,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { AlertCircle, Loader2 } from "lucide-react";
 
 export function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState(import.meta.env.VITE_ADMIN_EMAIL || "");
+  const [password, setPassword] = useState(import.meta.env.VITE_ADMIN_PASSWORD || "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
