@@ -40,7 +40,7 @@ export function Providers() {
     try {
       setLoading(true);
       setError(null);
-      const response = await getServiceProviders({ limit: 100 });
+      const response = await getServiceProviders({ limit: 100 }) as { success: boolean; data?: { providers: ServiceProvider[] } };
       if (response.success && response.data) {
         setProviders(response.data.providers || []);
       }

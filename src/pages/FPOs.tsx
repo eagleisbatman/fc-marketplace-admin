@@ -52,7 +52,7 @@ export function FPOs() {
     try {
       setLoading(true);
       setError(null);
-      const response = await getFPOs({ limit: 100 });
+      const response = await getFPOs({ limit: 100 }) as { success: boolean; data?: { fpos: FPO[] } };
       if (response.success && response.data) {
         setFpos(response.data.fpos || []);
       }
