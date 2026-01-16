@@ -46,7 +46,7 @@ export function Locations() {
   const [syncResult, setSyncResult] = useState<{ type: string; result: SyncResult } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [states, setStates] = useState<State[]>([]);
-  const [selectedState, setSelectedState] = useState<string>("");
+  const [selectedState, setSelectedState] = useState<string>("__all__");
 
   const fetchStatus = async () => {
     try {
@@ -88,7 +88,7 @@ export function Locations() {
         response = await syncBlocks();
       } else {
         response = await syncVillages(
-          selectedState ? { state: selectedState } : undefined
+          selectedState && selectedState !== "__all__" ? { state: selectedState } : undefined
         );
       }
 
@@ -314,7 +314,7 @@ export function Locations() {
                 <SelectValue placeholder="All states (optional filter)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All States</SelectItem>
+                <SelectItem value="__all__">All States</SelectItem>
                 {states.map((state) => (
                   <SelectItem key={state.code} value={state.code}>
                     {state.name}
