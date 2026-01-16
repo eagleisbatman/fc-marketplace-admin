@@ -21,7 +21,9 @@ import {
   Globe,
   Building,
   Home,
-  Map
+  Map,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 import {
   getLocationSyncStatus,
@@ -33,11 +35,52 @@ import {
   type SyncResult
 } from "@/lib/api";
 
+// Expected counts from India Data Portal
+const EXPECTED_COUNTS = {
+  districts: 765,
+  blocks: 7245,
+  villages: 690499,
+};
+
 type State = {
   id: string;
   code: string;
   name: string;
 };
+
+type SyncStatus = "up_to_date" | "needs_update" | "empty";
+
+function getSyncStatus(current: number, expected: number): SyncStatus {
+  if (current === 0) return "empty";
+  if (current >= expected * 0.95) return "up_to_date"; // Allow 5% tolerance
+  return "needs_update";
+}
+
+function StatusBadge({ status, current, expected }: { status: SyncStatus; current: number; expected: number }) {
+  if (status === "up_to_date") {
+    return (
+      <Badge variant="default" className="bg-green-500">
+        <CheckCircle className="mr-1 h-3 w-3" />
+        Up to date
+      </Badge>
+    );
+  }
+  if (status === "empty") {
+    return (
+      <Badge variant="destructive">
+        <XCircle className="mr-1 h-3 w-3" />
+        Not loaded
+      </Badge>
+    );
+  }
+  const missing = expected - current;
+  return (
+    <Badge variant="secondary" className="bg-orange-500 text-white">
+      <AlertCircle className="mr-1 h-3 w-3" />
+      {missing.toLocaleString()} new available
+    </Badge>
+  );
+}
 
 export function Locations() {
   const [status, setStatus] = useState<LocationSyncStatus | null>(null);
@@ -103,13 +146,18 @@ export function Locations() {
 
   const formatNumber = (num: number) => num.toLocaleString();
 
+  // Calculate sync statuses
+  const districtStatus = status ? getSyncStatus(status.counts.districts, EXPECTED_COUNTS.districts) : "empty";
+  const blockStatus = status ? getSyncStatus(status.counts.blocks, EXPECTED_COUNTS.blocks) : "empty";
+  const villageStatus = status ? getSyncStatus(status.counts.villages, EXPECTED_COUNTS.villages) : "empty";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Locations</h1>
           <p className="text-muted-foreground">
-            Sync and manage geographic hierarchy from India Data Portal
+            India location hierarchy (States → Districts → Blocks → Villages)
           </p>
         </div>
         <Button variant="outline" onClick={fetchStatus} disabled={loading}>
@@ -177,7 +225,10 @@ export function Locations() {
                   <span className="font-medium">States</span>
                 </div>
                 <p className="text-2xl font-bold">{formatNumber(status.counts.states)}</p>
-                <p className="text-xs text-muted-foreground">Pre-seeded</p>
+                <Badge variant="default" className="bg-green-500 mt-2">
+                  <CheckCircle className="mr-1 h-3 w-3" />
+                  Pre-seeded
+                </Badge>
               </div>
               <div className="p-4 rounded-lg border bg-muted/50">
                 <div className="flex items-center gap-2 mb-2">
@@ -185,9 +236,9 @@ export function Locations() {
                   <span className="font-medium">Districts</span>
                 </div>
                 <p className="text-2xl font-bold">{formatNumber(status.counts.districts)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatNumber(status.withLgdCodes.districts)} with LGD codes
-                </p>
+                <div className="mt-2">
+                  <StatusBadge status={districtStatus} current={status.counts.districts} expected={EXPECTED_COUNTS.districts} />
+                </div>
               </div>
               <div className="p-4 rounded-lg border bg-muted/50">
                 <div className="flex items-center gap-2 mb-2">
@@ -195,9 +246,9 @@ export function Locations() {
                   <span className="font-medium">Blocks</span>
                 </div>
                 <p className="text-2xl font-bold">{formatNumber(status.counts.blocks)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatNumber(status.withLgdCodes.blocks)} with LGD codes
-                </p>
+                <div className="mt-2">
+                  <StatusBadge status={blockStatus} current={status.counts.blocks} expected={EXPECTED_COUNTS.blocks} />
+                </div>
               </div>
               <div className="p-4 rounded-lg border bg-muted/50">
                 <div className="flex items-center gap-2 mb-2">
@@ -205,9 +256,9 @@ export function Locations() {
                   <span className="font-medium">Villages</span>
                 </div>
                 <p className="text-2xl font-bold">{formatNumber(status.counts.villages)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatNumber(status.withLgdCodes.villages)} with LGD codes
-                </p>
+                <div className="mt-2">
+                  <StatusBadge status={villageStatus} current={status.counts.villages} expected={EXPECTED_COUNTS.villages} />
+                </div>
               </div>
             </div>
           ) : (
@@ -216,140 +267,170 @@ export function Locations() {
         </CardContent>
       </Card>
 
-      {/* Sync Cards */}
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* Districts Sync */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Map className="h-5 w-5 text-green-500" />
-              Sync Districts
-            </CardTitle>
-            <CardDescription>
-              ~765 districts from India Data Portal
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              <p>Syncs district data with LGD codes from the official India Data Portal.</p>
-            </div>
-            {syncing === "districts" && (
-              <Progress value={undefined} className="h-2" />
-            )}
-            <Button
-              onClick={() => handleSync("districts")}
-              disabled={syncing !== null}
-              className="w-full"
-            >
-              {syncing === "districts" ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Syncing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Sync Districts
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Sync Cards - Only show if not up to date */}
+      {status && (districtStatus !== "up_to_date" || blockStatus !== "up_to_date" || villageStatus !== "up_to_date") && (
+        <>
+          <h2 className="text-xl font-semibold mt-8">Import from India Data Portal</h2>
+          <p className="text-muted-foreground text-sm mb-4">
+            Click to import/update location data from the official India Data Portal API.
+          </p>
 
-        {/* Blocks Sync */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Building className="h-5 w-5 text-orange-500" />
-              Sync Blocks
-            </CardTitle>
-            <CardDescription>
-              ~7,245 blocks from India Data Portal
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              <p>Syncs block/taluka data. Requires districts to be synced first.</p>
-            </div>
-            {syncing === "blocks" && (
-              <Progress value={undefined} className="h-2" />
+          <div className="grid gap-6 md:grid-cols-3">
+            {/* Districts Sync */}
+            {districtStatus !== "up_to_date" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Map className="h-5 w-5 text-green-500" />
+                    Import Districts
+                  </CardTitle>
+                  <CardDescription>
+                    {EXPECTED_COUNTS.districts.toLocaleString()} districts from India Data Portal
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <StatusBadge status={districtStatus} current={status.counts.districts} expected={EXPECTED_COUNTS.districts} />
+                  {syncing === "districts" && (
+                    <Progress value={undefined} className="h-2" />
+                  )}
+                  <Button
+                    onClick={() => handleSync("districts")}
+                    disabled={syncing !== null}
+                    className="w-full"
+                  >
+                    {syncing === "districts" ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Import Districts
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
             )}
-            <Button
-              onClick={() => handleSync("blocks")}
-              disabled={syncing !== null}
-              className="w-full"
-            >
-              {syncing === "blocks" ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Syncing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Sync Blocks
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
 
-        {/* Villages Sync */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Home className="h-5 w-5 text-purple-500" />
-              Sync Villages
-            </CardTitle>
-            <CardDescription>
-              ~690,000 villages from India Data Portal
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              <p>Syncs village data. Can filter by state. May take several minutes.</p>
-            </div>
-            <Select value={selectedState} onValueChange={setSelectedState}>
-              <SelectTrigger>
-                <SelectValue placeholder="All states (optional filter)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">All States</SelectItem>
-                {states.map((state) => (
-                  <SelectItem key={state.code} value={state.code}>
-                    {state.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {syncing === "villages" && (
-              <div className="space-y-2">
-                <Progress value={undefined} className="h-2" />
-                <p className="text-xs text-muted-foreground text-center">
-                  This may take several minutes...
-                </p>
-              </div>
+            {/* Blocks Sync */}
+            {blockStatus !== "up_to_date" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Building className="h-5 w-5 text-orange-500" />
+                    Import Blocks
+                  </CardTitle>
+                  <CardDescription>
+                    {EXPECTED_COUNTS.blocks.toLocaleString()} blocks from India Data Portal
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <StatusBadge status={blockStatus} current={status.counts.blocks} expected={EXPECTED_COUNTS.blocks} />
+                  {districtStatus === "empty" && (
+                    <p className="text-sm text-orange-500">Import districts first</p>
+                  )}
+                  {syncing === "blocks" && (
+                    <Progress value={undefined} className="h-2" />
+                  )}
+                  <Button
+                    onClick={() => handleSync("blocks")}
+                    disabled={syncing !== null || districtStatus === "empty"}
+                    className="w-full"
+                  >
+                    {syncing === "blocks" ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Import Blocks
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
             )}
-            <Button
-              onClick={() => handleSync("villages")}
-              disabled={syncing !== null}
-              className="w-full"
-            >
-              {syncing === "villages" ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Syncing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Sync Villages
-                </>
-              )}
-            </Button>
+
+            {/* Villages Sync */}
+            {villageStatus !== "up_to_date" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Home className="h-5 w-5 text-purple-500" />
+                    Import Villages
+                  </CardTitle>
+                  <CardDescription>
+                    {EXPECTED_COUNTS.villages.toLocaleString()} villages from India Data Portal
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <StatusBadge status={villageStatus} current={status.counts.villages} expected={EXPECTED_COUNTS.villages} />
+                  {blockStatus === "empty" && (
+                    <p className="text-sm text-orange-500">Import blocks first</p>
+                  )}
+                  <Select value={selectedState} onValueChange={setSelectedState}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All states (optional filter)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All States</SelectItem>
+                      {states.map((state) => (
+                        <SelectItem key={state.code} value={state.code}>
+                          {state.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {syncing === "villages" && (
+                    <div className="space-y-2">
+                      <Progress value={undefined} className="h-2" />
+                      <p className="text-xs text-muted-foreground text-center">
+                        This may take several minutes...
+                      </p>
+                    </div>
+                  )}
+                  <Button
+                    onClick={() => handleSync("villages")}
+                    disabled={syncing !== null || blockStatus === "empty"}
+                    className="w-full"
+                  >
+                    {syncing === "villages" ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Import Villages
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* All Up to Date Message */}
+      {status && districtStatus === "up_to_date" && blockStatus === "up_to_date" && villageStatus === "up_to_date" && (
+        <Card className="border-green-500 bg-green-500/10">
+          <CardContent className="flex items-center gap-4 py-6">
+            <CheckCircle className="h-10 w-10 text-green-500" />
+            <div>
+              <h3 className="font-semibold text-lg">All location data is up to date</h3>
+              <p className="text-sm text-muted-foreground">
+                Your database has all {EXPECTED_COUNTS.districts.toLocaleString()} districts, {EXPECTED_COUNTS.blocks.toLocaleString()} blocks, and {EXPECTED_COUNTS.villages.toLocaleString()} villages from India Data Portal.
+              </p>
+            </div>
           </CardContent>
         </Card>
-      </div>
+      )}
 
       {/* Info Card */}
       <Card>
@@ -366,7 +447,7 @@ export function Locations() {
               official LGD (Local Government Directory) codes for administrative divisions.
             </p>
             <p className="text-muted-foreground">
-              The sync process will:
+              The import process will:
             </p>
             <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-2">
               <li>Create new locations that don't exist in the database</li>
@@ -375,12 +456,12 @@ export function Locations() {
             </ul>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">Districts: 765</Badge>
-            <Badge variant="outline">Blocks: 7,245</Badge>
-            <Badge variant="outline">Villages: 690,499</Badge>
+            <Badge variant="outline">Districts: {EXPECTED_COUNTS.districts.toLocaleString()}</Badge>
+            <Badge variant="outline">Blocks: {EXPECTED_COUNTS.blocks.toLocaleString()}</Badge>
+            <Badge variant="outline">Villages: {EXPECTED_COUNTS.villages.toLocaleString()}</Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            Source: India Data Portal (ckandev.indiadataportal.com)
+            Source: India Data Portal (api.data.gov.in)
           </p>
         </CardContent>
       </Card>
