@@ -418,7 +418,7 @@ function downloadExcel(template: TemplateConfig) {
   XLSX.utils.book_append_sheet(workbook, worksheet, template.title);
 
   // Auto-size columns
-  const colWidths = template.columns.map((col, i) => {
+  const colWidths = template.columns.map((col) => {
     const maxLength = Math.max(
       col.length,
       ...template.sampleData.map((row) => (row[col] || "").length)

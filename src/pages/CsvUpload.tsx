@@ -343,8 +343,6 @@ export function CsvUpload() {
     }
   };
 
-  const currentConfig = uploadConfigs.find((c) => c.type === selectedType);
-
   return (
     <div className="space-y-6">
       <div>

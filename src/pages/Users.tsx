@@ -57,7 +57,8 @@ import {
   bulkAssignUsers,
   updateUserLocation,
 } from "@/lib/api";
-import { LocationSelector, LocationValue } from "@/components/LocationSelector";
+import { LocationSelector } from "@/components/LocationSelector";
+import type { LocationValue } from "@/components/LocationSelector";
 import { FPOSelector } from "@/components/FPOSelector";
 import { toast } from "sonner";
 

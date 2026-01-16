@@ -68,7 +68,8 @@ import {
   updateFPOMemberRole,
   getUsers,
 } from "@/lib/api";
-import { LocationSelector, LocationValue } from "@/components/LocationSelector";
+import { LocationSelector } from "@/components/LocationSelector";
+import type { LocationValue } from "@/components/LocationSelector";
 import { toast } from "sonner";
 
 type FPO = {
