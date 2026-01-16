@@ -1,8 +1,9 @@
-// API URL from environment variable
-const API_URL = import.meta.env.VITE_API_URL;
+// API base URL from environment variable (e.g., https://fc-marketplace-backend.up.railway.app)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_URL = API_BASE_URL ? `${API_BASE_URL}/api/v1` : null;
 
 if (!API_URL) {
-  console.error("VITE_API_URL environment variable is not set");
+  console.error("VITE_API_BASE_URL environment variable is not set");
 }
 
 type ImportResult = {
