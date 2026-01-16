@@ -1,5 +1,9 @@
-// API URL - defaults to Railway backend
-const API_URL = import.meta.env.VITE_API_URL || "https://fc-marketplace-backend.up.railway.app/api/v1";
+// API URL from environment variable
+const API_URL = import.meta.env.VITE_API_URL;
+
+if (!API_URL) {
+  console.error("VITE_API_URL environment variable is not set");
+}
 
 type ImportResult = {
   success: boolean;

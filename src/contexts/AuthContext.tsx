@@ -26,8 +26,8 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// API URL - defaults to Railway backend
-const API_URL = import.meta.env.VITE_API_URL || "https://fc-marketplace-backend.up.railway.app/api/v1";
+// API URL from environment variable
+const API_URL = import.meta.env.VITE_API_URL;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
