@@ -83,10 +83,14 @@ export async function loginAdmin(email: string, password: string): Promise<Login
 }
 
 // Bulk import endpoints
-export async function importUsers(data: Record<string, string>[], userType: string): Promise<ImportResult> {
+export async function importUsers(
+  data: Record<string, string>[],
+  userType: string,
+  fpoId?: string
+): Promise<ImportResult> {
   return apiFetch("/admin/import/users", {
     method: "POST",
-    body: JSON.stringify({ data, userType }),
+    body: JSON.stringify({ data, userType, fpoId }),
   });
 }
 
@@ -128,13 +132,34 @@ export async function importLocations(
   });
 }
 
-// CRUD operations
+// CRUD operations - Users
 export async function getUsers(params?: { type?: string; page?: number; limit?: number }) {
   const query = new URLSearchParams();
   if (params?.type) query.set("type", params.type);
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   return apiFetch(`/admin/users?${query}`);
+}
+
+export async function getUser(id: string) {
+  return apiFetch(`/admin/users/${id}`);
+}
+
+export async function createUser(data: {
+  name: string;
+  nameLocal?: string;
+  phone?: string;
+  email?: string;
+  type: "farmer" | "partner" | "provider" | "admin";
+  languageId?: string;
+  villageId?: string;
+  fpoId?: string;
+  fpoRole?: string;
+}) {
+  return apiFetch("/admin/users", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 export async function updateUser(id: string, data: Record<string, unknown>) {
@@ -148,11 +173,43 @@ export async function deleteUser(id: string) {
   return apiFetch(`/admin/users/${id}`, { method: "DELETE" });
 }
 
+export async function bulkAssignUsers(params: {
+  userIds: string[];
+  fpoId?: string;
+  fpoRole?: string;
+  villageId?: string;
+}) {
+  return apiFetch("/admin/users/bulk-assign", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
+// CRUD operations - FPOs
 export async function getFPOs(params?: { page?: number; limit?: number }) {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   return apiFetch(`/admin/fpos?${query}`);
+}
+
+export async function getFPO(id: string) {
+  return apiFetch(`/admin/fpos/${id}`);
+}
+
+export async function createFPO(data: {
+  name: string;
+  nameLocal?: string;
+  registrationNumber?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  villageId?: string;
+}) {
+  return apiFetch("/admin/fpos", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 export async function updateFPO(id: string, data: Record<string, unknown>) {
@@ -164,6 +221,20 @@ export async function updateFPO(id: string, data: Record<string, unknown>) {
 
 export async function deleteFPO(id: string) {
   return apiFetch(`/admin/fpos/${id}`, { method: "DELETE" });
+}
+
+export async function getFPOMembers(fpoId: string, params?: { page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  return apiFetch(`/admin/fpos/${fpoId}/members?${query}`);
+}
+
+export async function updateFPOMemberRole(fpoId: string, userId: string, role: string) {
+  return apiFetch(`/admin/fpos/${fpoId}/members/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
 }
 
 export async function getServiceProviders(params?: { page?: number; limit?: number }) {

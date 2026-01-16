@@ -1,10 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AdminProvider } from "@/contexts/AdminContext";
 import { Layout } from "@/components/Layout";
 import { Login } from "@/pages/Login";
 import { Dashboard } from "@/pages/Dashboard";
 import { CsvUpload } from "@/pages/CsvUpload";
+import { Templates } from "@/pages/Templates";
 import { Users } from "@/pages/Users";
 import { FPOs } from "@/pages/FPOs";
 import { Providers } from "@/pages/Providers";
@@ -73,6 +75,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/dashboard/templates"
+        element={
+          <ProtectedRoute>
+            <Templates />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/dashboard/users"
         element={
           <ProtectedRoute>
@@ -128,10 +138,12 @@ function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="fc-admin-theme">
       <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-          <Toaster />
-        </BrowserRouter>
+        <AdminProvider>
+          <BrowserRouter>
+            <AppRoutes />
+            <Toaster />
+          </BrowserRouter>
+        </AdminProvider>
       </AuthProvider>
     </ThemeProvider>
   );

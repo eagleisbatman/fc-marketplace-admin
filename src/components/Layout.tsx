@@ -2,7 +2,16 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/contexts/AdminContext";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Users,
   Building2,
@@ -13,12 +22,16 @@ import {
   LayoutDashboard,
   Store,
   Tag,
+  FileDown,
+  ChevronDown,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/dashboard/upload", label: "CSV Upload", icon: Upload },
+  { path: "/dashboard/upload", label: "Data Upload", icon: Upload },
+  { path: "/dashboard/templates", label: "Templates", icon: FileDown },
   { path: "/dashboard/users", label: "Users", icon: Users },
   { path: "/dashboard/fpos", label: "FPOs", icon: Building2 },
   { path: "/dashboard/providers", label: "Service Providers", icon: Store },
@@ -36,6 +49,7 @@ const getRoleBadge = (user: { role: string; countryName?: string; stateName?: st
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const { selectedCountry, countries, setSelectedCountry } = useAdmin();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -43,6 +57,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     logout();
     navigate("/");
   };
+
+  const isSuperAdmin = user?.role === "super_admin";
 
   return (
     <div className="min-h-screen bg-background">
@@ -57,6 +73,47 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex-1" />
 
           <div className="flex items-center gap-4">
+            {/* Country Selector for Super Admin */}
+            {isSuperAdmin && selectedCountry && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <span className="text-base">{selectedCountry.flag}</span>
+                    <span className="hidden sm:inline">{selectedCountry.name}</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    Switch Country
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {countries.map((country) => (
+                    <DropdownMenuItem
+                      key={country.id}
+                      onClick={() => setSelectedCountry(country)}
+                      className={cn(
+                        "gap-2 cursor-pointer",
+                        selectedCountry.id === country.id && "bg-accent"
+                      )}
+                    >
+                      <span className="text-base">{country.flag}</span>
+                      {country.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Country indicator for country/state admin */}
+            {!isSuperAdmin && user?.countryName && (
+              <Badge variant="outline" className="gap-1">
+                <Globe className="h-3 w-3" />
+                {user.countryName}
+              </Badge>
+            )}
+
             {user && (
               <div className="flex items-center gap-2">
                 <Badge variant={user.role === "super_admin" ? "default" : "secondary"}>

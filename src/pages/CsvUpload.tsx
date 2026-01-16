@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ import {
   Package,
   MapPin,
   Loader2,
+  FileText,
 } from "lucide-react";
 import {
   importUsers,
@@ -34,7 +35,9 @@ import {
   importProducts,
   importLocations,
 } from "@/lib/api";
+import { FPOSelectorSimple } from "@/components/FPOSelector";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 type UploadType =
   | "farmers"
@@ -56,6 +59,7 @@ interface UploadConfig {
   icon: React.ElementType;
   templateFile: string;
   requiredColumns: string[];
+  supportsFpoPreselect?: boolean;
 }
 
 const uploadConfigs: UploadConfig[] = [
@@ -64,15 +68,16 @@ const uploadConfigs: UploadConfig[] = [
     label: "Farmers",
     description: "Farmer user accounts",
     icon: Users,
-    templateFile: "farmers_template.csv",
+    templateFile: "farmers_template",
     requiredColumns: ["name", "phone", "name_local", "email", "state_code", "district_name", "block_name", "village_name"],
+    supportsFpoPreselect: true,
   },
   {
     type: "partners",
     label: "Partners",
     description: "FPO partners/managers",
     icon: Users,
-    templateFile: "partners_template.csv",
+    templateFile: "partners_template",
     requiredColumns: ["name", "phone", "name_local", "email", "state_code", "district_name", "block_name", "village_name"],
   },
   {
@@ -80,7 +85,7 @@ const uploadConfigs: UploadConfig[] = [
     label: "Provider Users",
     description: "Service provider user accounts",
     icon: Users,
-    templateFile: "provider_users_template.csv",
+    templateFile: "provider_users_template",
     requiredColumns: ["name", "phone", "name_local", "email"],
   },
   {
@@ -88,7 +93,7 @@ const uploadConfigs: UploadConfig[] = [
     label: "Admins",
     description: "Admin user accounts",
     icon: Users,
-    templateFile: "admins_template.csv",
+    templateFile: "admins_template",
     requiredColumns: ["name", "phone", "email", "password"],
   },
   {
@@ -96,7 +101,7 @@ const uploadConfigs: UploadConfig[] = [
     label: "FPOs",
     description: "Farmer Producer Organizations",
     icon: Building2,
-    templateFile: "fpos_template.csv",
+    templateFile: "fpos_template",
     requiredColumns: ["name", "name_local", "registration_number", "phone", "email", "state_code", "district_name", "block_name", "village_name"],
   },
   {
@@ -104,7 +109,7 @@ const uploadConfigs: UploadConfig[] = [
     label: "Service Providers",
     description: "Companies selling products",
     icon: Store,
-    templateFile: "service_providers_template.csv",
+    templateFile: "service_providers_template",
     requiredColumns: ["name", "description", "website", "logo_url"],
   },
   {
@@ -112,7 +117,7 @@ const uploadConfigs: UploadConfig[] = [
     label: "Brands",
     description: "Product brand master list",
     icon: Tag,
-    templateFile: "brands_template.csv",
+    templateFile: "brands_template",
     requiredColumns: ["name", "description", "logo_url"],
   },
   {
@@ -120,7 +125,7 @@ const uploadConfigs: UploadConfig[] = [
     label: "Products",
     description: "Product catalog",
     icon: Package,
-    templateFile: "products_template.csv",
+    templateFile: "products_template",
     requiredColumns: ["sku_code", "name", "name_local", "description", "category_slug", "provider_name", "brand_name", "unit_code", "pack_size", "mrp", "image_url"],
   },
   {
@@ -128,7 +133,7 @@ const uploadConfigs: UploadConfig[] = [
     label: "Districts",
     description: "Geographic districts",
     icon: MapPin,
-    templateFile: "districts_template.csv",
+    templateFile: "districts_template",
     requiredColumns: ["name", "name_local", "state_code", "lgd_code"],
   },
   {
@@ -136,7 +141,7 @@ const uploadConfigs: UploadConfig[] = [
     label: "Blocks",
     description: "Blocks/Talukas",
     icon: MapPin,
-    templateFile: "blocks_template.csv",
+    templateFile: "blocks_template",
     requiredColumns: ["name", "name_local", "district_name", "state_code", "lgd_code"],
   },
   {
@@ -144,7 +149,7 @@ const uploadConfigs: UploadConfig[] = [
     label: "Villages",
     description: "Villages with GPS",
     icon: MapPin,
-    templateFile: "villages_template.csv",
+    templateFile: "villages_template",
     requiredColumns: ["name", "name_local", "block_name", "district_name", "state_code", "lgd_code", "latitude", "longitude"],
   },
 ];
@@ -161,7 +166,10 @@ export function CsvUpload() {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
   const [previewData, setPreviewData] = useState<Record<string, string>[]>([]);
+  const [fullData, setFullData] = useState<Record<string, string>[]>([]);
   const [fileName, setFileName] = useState<string>("");
+  const [selectedFpoId, setSelectedFpoId] = useState<string | undefined>();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const parseCSV = (text: string): Record<string, string>[] => {
     const lines = text.trim().split("\n");
@@ -194,18 +202,54 @@ export function CsvUpload() {
     });
   };
 
+  const parseExcel = (buffer: ArrayBuffer): Record<string, string>[] => {
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+
+    // Convert to JSON with header row
+    const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+      raw: false,
+      defval: ""
+    });
+
+    // Convert all values to strings
+    return jsonData.map(row => {
+      const stringRow: Record<string, string> = {};
+      Object.entries(row).forEach(([key, value]) => {
+        stringRow[key] = String(value ?? "");
+      });
+      return stringRow;
+    });
+  };
+
   const handleFileSelect = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
 
       setFileName(file.name);
-      const text = await file.text();
-      const rows = parseCSV(text);
-
-      // Show preview (first 5 rows)
-      setPreviewData(rows.slice(0, 5));
       setResult(null);
+
+      try {
+        const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+        let rows: Record<string, string>[];
+
+        if (isExcel) {
+          const buffer = await file.arrayBuffer();
+          rows = parseExcel(buffer);
+        } else {
+          const text = await file.text();
+          rows = parseCSV(text);
+        }
+
+        // Store full data and show preview (first 5 rows)
+        setFullData(rows);
+        setPreviewData(rows.slice(0, 5));
+      } catch (err) {
+        toast.error("Failed to parse file. Please check the format.");
+        console.error("Parse error:", err);
+      }
 
       // Reset file input
       event.target.value = "";
@@ -214,23 +258,26 @@ export function CsvUpload() {
   );
 
   const handleUpload = async () => {
-    if (previewData.length === 0) return;
+    if (fullData.length === 0) return;
 
     setUploading(true);
     setResult(null);
 
     try {
-      // Re-parse full file data (previewData only has 5 rows)
-      const fullData = previewData; // In real app, store full data
-
       let response: UploadResult;
 
       switch (selectedType) {
         case "farmers":
+          response = await importUsers(fullData, "farmer", selectedFpoId);
+          break;
         case "partners":
+          response = await importUsers(fullData, "partner");
+          break;
         case "providers":
+          response = await importUsers(fullData, "provider");
+          break;
         case "admins":
-          response = await importUsers(fullData, selectedType === "providers" ? "provider" : selectedType.slice(0, -1));
+          response = await importUsers(fullData, "admin");
           break;
         case "fpos":
           response = await importFPOs(fullData);
@@ -265,7 +312,7 @@ export function CsvUpload() {
       setResult({
         success: false,
         imported: 0,
-        failed: previewData.length,
+        failed: fullData.length,
         errors: [message],
       });
       toast.error(message);
@@ -274,34 +321,46 @@ export function CsvUpload() {
     }
   };
 
-  const downloadTemplate = (config: UploadConfig) => {
-    // Generate CSV content with headers
-    const csvContent = config.requiredColumns.join(",") + "\n";
+  const downloadTemplate = (config: UploadConfig, format: "csv" | "xlsx") => {
+    const headers = config.requiredColumns;
 
-    // Create blob and download
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = config.templateFile;
-    link.click();
-    URL.revokeObjectURL(url);
+    if (format === "csv") {
+      // Generate CSV content with headers
+      const csvContent = headers.join(",") + "\n";
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${config.templateFile}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else {
+      // Generate Excel file
+      const worksheet = XLSX.utils.aoa_to_sheet([headers]);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+      XLSX.writeFile(workbook, `${config.templateFile}.xlsx`);
+    }
   };
+
+  const currentConfig = uploadConfigs.find((c) => c.type === selectedType);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">CSV Upload</h1>
+        <h1 className="text-3xl font-bold">Data Upload</h1>
         <p className="text-muted-foreground">
-          Import data from CSV files. Assign locations via UI after import.
+          Import data from CSV or Excel files. Assign locations via UI after import.
         </p>
       </div>
 
       <Tabs value={selectedType} onValueChange={(v) => {
         setSelectedType(v as UploadType);
         setPreviewData([]);
+        setFullData([]);
         setResult(null);
         setFileName("");
+        setSelectedFpoId(undefined);
       }}>
         <TabsList className="flex-wrap h-auto gap-2 p-2">
           <TabsTrigger value="farmers">Farmers</TabsTrigger>
@@ -331,16 +390,57 @@ export function CsvUpload() {
                       <CardDescription>{uploadConfig.description}</CardDescription>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => downloadTemplate(uploadConfig)}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Template
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadTemplate(uploadConfig, "csv")}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      CSV Template
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadTemplate(uploadConfig, "xlsx")}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Excel Template
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* FPO Pre-selection for Farmers */}
+                {uploadConfig.supportsFpoPreselect && (
+                  <div className="p-4 border rounded-lg bg-muted/50">
+                    <div className="flex items-start gap-4">
+                      <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium mb-1">
+                          Auto-assign to FPO (optional)
+                        </h4>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Select an FPO to automatically add all imported farmers as members
+                        </p>
+                        <div className="max-w-xs">
+                          <FPOSelectorSimple
+                            value={selectedFpoId}
+                            onChange={setSelectedFpoId}
+                            placeholder="Select FPO (optional)"
+                            showLabel={false}
+                          />
+                        </div>
+                        {selectedFpoId && (
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                            All imported farmers will be added as members to this FPO
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Required Columns */}
                 <div>
                   <h4 className="text-sm font-medium mb-2">Required Columns:</h4>
@@ -356,8 +456,9 @@ export function CsvUpload() {
                 {/* Upload Zone */}
                 <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
                   <input
+                    ref={fileInputRef}
                     type="file"
-                    accept=".csv"
+                    accept=".csv,.xlsx,.xls"
                     onChange={handleFileSelect}
                     className="hidden"
                     id={`file-upload-${uploadConfig.type}`}
@@ -368,12 +469,17 @@ export function CsvUpload() {
                   >
                     <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     {fileName ? (
-                      <p className="text-lg font-medium text-primary">{fileName}</p>
+                      <div>
+                        <p className="text-lg font-medium text-primary">{fileName}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {fullData.length} rows loaded
+                        </p>
+                      </div>
                     ) : (
                       <>
-                        <p className="text-lg font-medium">Drop CSV file here or click to browse</p>
+                        <p className="text-lg font-medium">Drop file here or click to browse</p>
                         <p className="text-sm text-muted-foreground mt-1">
-                          Supports .csv files only
+                          Supports .csv and .xlsx files
                         </p>
                       </>
                     )}
@@ -384,7 +490,7 @@ export function CsvUpload() {
                 {previewData.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium mb-2">
-                      Preview (first {previewData.length} rows):
+                      Preview (first {previewData.length} of {fullData.length} rows):
                     </h4>
                     <div className="border rounded-lg overflow-x-auto">
                       <Table>
@@ -409,7 +515,15 @@ export function CsvUpload() {
                       </Table>
                     </div>
 
-                    <div className="flex justify-end mt-4">
+                    <div className="flex items-center justify-between mt-4">
+                      <p className="text-sm text-muted-foreground">
+                        {fullData.length} total rows will be uploaded
+                        {selectedFpoId && uploadConfig.supportsFpoPreselect && (
+                          <span className="text-green-600 dark:text-green-400 ml-2">
+                            (auto-assigned to FPO)
+                          </span>
+                        )}
+                      </p>
                       <Button onClick={handleUpload} disabled={uploading}>
                         {uploading ? (
                           <>
@@ -419,7 +533,7 @@ export function CsvUpload() {
                         ) : (
                           <>
                             <Upload className="mr-2 h-4 w-4" />
-                            Upload Data
+                            Upload {fullData.length} Records
                           </>
                         )}
                       </Button>
@@ -450,9 +564,14 @@ export function CsvUpload() {
                       )}
                       {["farmers", "partners", "fpos", "service_providers"].includes(
                         uploadConfig.type
-                      ) && result.imported > 0 && (
+                      ) && result.imported > 0 && !selectedFpoId && (
                         <p className="mt-2 font-medium">
                           Next: Go to the respective section to assign locations
+                        </p>
+                      )}
+                      {uploadConfig.supportsFpoPreselect && selectedFpoId && result.imported > 0 && (
+                        <p className="mt-2 text-green-600 dark:text-green-400 font-medium">
+                          {result.imported} farmers were automatically added to the selected FPO
                         </p>
                       )}
                     </AlertDescription>
