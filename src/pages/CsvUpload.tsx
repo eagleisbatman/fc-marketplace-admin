@@ -64,88 +64,88 @@ const uploadConfigs: UploadConfig[] = [
     label: "Farmers",
     description: "Farmer user accounts",
     icon: Users,
-    templateFile: "01_farmers.csv",
-    requiredColumns: ["name", "phone"],
+    templateFile: "farmers_template.csv",
+    requiredColumns: ["name", "phone", "name_local", "email", "state_code", "district_name", "block_name", "village_name"],
   },
   {
     type: "partners",
     label: "Partners",
     description: "FPO partners/managers",
     icon: Users,
-    templateFile: "02_partners.csv",
-    requiredColumns: ["name", "phone"],
+    templateFile: "partners_template.csv",
+    requiredColumns: ["name", "phone", "name_local", "email", "state_code", "district_name", "block_name", "village_name"],
   },
   {
     type: "providers",
     label: "Provider Users",
     description: "Service provider user accounts",
     icon: Users,
-    templateFile: "03_providers.csv",
-    requiredColumns: ["name", "phone"],
+    templateFile: "provider_users_template.csv",
+    requiredColumns: ["name", "phone", "name_local", "email"],
   },
   {
     type: "admins",
     label: "Admins",
     description: "Admin user accounts",
     icon: Users,
-    templateFile: "04_admins.csv",
-    requiredColumns: ["name", "phone"],
+    templateFile: "admins_template.csv",
+    requiredColumns: ["name", "phone", "email", "password"],
   },
   {
     type: "fpos",
     label: "FPOs",
     description: "Farmer Producer Organizations",
     icon: Building2,
-    templateFile: "05_fpos.csv",
-    requiredColumns: ["name", "registration_number"],
+    templateFile: "fpos_template.csv",
+    requiredColumns: ["name", "name_local", "registration_number", "phone", "email", "state_code", "district_name", "block_name", "village_name"],
   },
   {
     type: "service_providers",
     label: "Service Providers",
     description: "Companies selling products",
     icon: Store,
-    templateFile: "07_service_providers.csv",
-    requiredColumns: ["name"],
+    templateFile: "service_providers_template.csv",
+    requiredColumns: ["name", "description", "website", "logo_url"],
   },
   {
     type: "brands",
     label: "Brands",
     description: "Product brand master list",
     icon: Tag,
-    templateFile: "08_brands.csv",
-    requiredColumns: ["name"],
+    templateFile: "brands_template.csv",
+    requiredColumns: ["name", "description", "logo_url"],
   },
   {
     type: "products",
     label: "Products",
     description: "Product catalog",
     icon: Package,
-    templateFile: "09_products.csv",
-    requiredColumns: ["sku_code", "name", "category_slug", "provider_name", "unit_code", "mrp"],
+    templateFile: "products_template.csv",
+    requiredColumns: ["sku_code", "name", "name_local", "description", "category_slug", "provider_name", "brand_name", "unit_code", "pack_size", "mrp", "image_url"],
   },
   {
     type: "districts",
     label: "Districts",
     description: "Geographic districts",
     icon: MapPin,
-    templateFile: "10_districts.csv",
-    requiredColumns: ["name", "state_code"],
+    templateFile: "districts_template.csv",
+    requiredColumns: ["name", "name_local", "state_code", "lgd_code"],
   },
   {
     type: "blocks",
     label: "Blocks",
     description: "Blocks/Talukas",
     icon: MapPin,
-    templateFile: "11_blocks.csv",
-    requiredColumns: ["name", "district_name", "state_code"],
+    templateFile: "blocks_template.csv",
+    requiredColumns: ["name", "name_local", "district_name", "state_code", "lgd_code"],
   },
   {
     type: "villages",
     label: "Villages",
     description: "Villages with GPS",
     icon: MapPin,
-    templateFile: "12_villages.csv",
-    requiredColumns: ["name", "block_name", "district_name", "state_code"],
+    templateFile: "villages_template.csv",
+    requiredColumns: ["name", "name_local", "block_name", "district_name", "state_code", "lgd_code", "latitude", "longitude"],
   },
 ];
 
@@ -274,12 +274,18 @@ export function CsvUpload() {
     }
   };
 
-  const downloadTemplate = (filename: string) => {
-    // Create download link for template
+  const downloadTemplate = (config: UploadConfig) => {
+    // Generate CSV content with headers
+    const csvContent = config.requiredColumns.join(",") + "\n";
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = `/templates/${filename}`;
-    link.download = filename;
+    link.href = url;
+    link.download = config.templateFile;
     link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -327,7 +333,7 @@ export function CsvUpload() {
                   </div>
                   <Button
                     variant="outline"
-                    onClick={() => downloadTemplate(uploadConfig.templateFile)}
+                    onClick={() => downloadTemplate(uploadConfig)}
                   >
                     <Download className="mr-2 h-4 w-4" />
                     Download Template
