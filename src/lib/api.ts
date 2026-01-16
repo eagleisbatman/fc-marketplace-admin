@@ -237,7 +237,7 @@ export async function exportData(dataType: string, format: "csv" | "json" = "csv
   return response.blob();
 }
 
-// Location Sync from India Data Portal
+// Location data status (pre-seeded from LGD)
 export type LocationSyncStatus = {
   counts: {
     states: number;
@@ -251,39 +251,13 @@ export type LocationSyncStatus = {
     villages: number;
   };
   sources: {
-    districts: string;
-    blocks: string;
-    villages: string;
+    data: string;
+    method: string;
   };
-};
-
-export type SyncResult = {
-  message: string;
-  created: number;
-  updated: number;
-  skipped: number;
-  totalProcessed?: number;
-  errors: string[];
 };
 
 export async function getLocationSyncStatus(): Promise<{ success: boolean; data: LocationSyncStatus }> {
   return apiFetch("/admin/location-sync/status");
-}
-
-export async function syncDistricts(): Promise<{ success: boolean; data: SyncResult }> {
-  return apiFetch("/admin/location-sync/districts", { method: "POST" });
-}
-
-export async function syncBlocks(): Promise<{ success: boolean; data: SyncResult }> {
-  return apiFetch("/admin/location-sync/blocks", { method: "POST" });
-}
-
-export async function syncVillages(options?: { limit?: number; state?: string }): Promise<{ success: boolean; data: SyncResult }> {
-  const params = new URLSearchParams();
-  if (options?.limit) params.set("limit", String(options.limit));
-  if (options?.state) params.set("state", options.state);
-  const query = params.toString() ? `?${params}` : "";
-  return apiFetch(`/admin/location-sync/villages${query}`, { method: "POST" });
 }
 
 // Countries
