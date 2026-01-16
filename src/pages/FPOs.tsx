@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,38 +11,73 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Building2, MapPin, Search, Users, Plus } from "lucide-react";
+import { Building2, MapPin, Search, Users, Loader2, AlertCircle } from "lucide-react";
+import { getFPOs } from "@/lib/api";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Mock data
-const mockFPOs = [
-  {
-    id: "1",
-    name: "Pune District Farmers Producer Company",
-    registrationNumber: "MH-FPO-2020-001",
-    phone: "912025551234",
-    members: 156,
-    location: null,
-  },
-  {
-    id: "2",
-    name: "Godavari Farmers Producer Organization",
-    registrationNumber: "MH-FPO-2021-015",
-    phone: "912535551234",
-    members: 89,
-    location: { state: "MH", district: "Nashik", block: "Niphad", village: "Ozar" },
-  },
-];
+type FPO = {
+  id: string;
+  name: string;
+  nameLocal?: string;
+  registrationNumber?: string;
+  phone?: string;
+  village?: {
+    name: string;
+    block: {
+      name: string;
+      district: {
+        name: string;
+        state: {
+          name: string;
+        };
+      };
+    };
+  };
+  _count?: {
+    members: number;
+  };
+};
 
 export function FPOs() {
   const [search, setSearch] = useState("");
+  const [fpos, setFpos] = useState<FPO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredFPOs = mockFPOs.filter(
+  useEffect(() => {
+    loadFPOs();
+  }, []);
+
+  const loadFPOs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getFPOs({ limit: 100 });
+      if (response.success && response.data) {
+        setFpos(response.data.fpos || []);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load FPOs");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredFPOs = fpos.filter(
     (fpo) =>
       fpo.name.toLowerCase().includes(search.toLowerCase()) ||
-      fpo.registrationNumber.toLowerCase().includes(search.toLowerCase())
+      (fpo.registrationNumber?.toLowerCase().includes(search.toLowerCase()) ?? false)
   );
 
-  const fposWithoutLocation = mockFPOs.filter((f) => !f.location).length;
+  const fposWithoutLocation = fpos.filter((f) => !f.village).length;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -54,6 +89,13 @@ export function FPOs() {
           </p>
         </div>
       </div>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {fposWithoutLocation > 0 && (
         <Card className="border-orange-500 bg-orange-500/10">
@@ -75,10 +117,13 @@ export function FPOs() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
-            FPO List
+            FPO List ({fpos.length} total)
           </CardTitle>
           <CardDescription>
-            Click on an FPO to manage location and members
+            {fpos.length === 0
+              ? "No FPOs found. Upload FPOs via CSV Upload page."
+              : "Manage FPO locations and members"
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -92,62 +137,71 @@ export function FPOs() {
                 className="pl-9"
               />
             </div>
+            <Button variant="outline" onClick={loadFPOs}>
+              Refresh
+            </Button>
           </div>
 
-          <div className="border rounded-lg overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Registration #</TableHead>
-                  <TableHead>Members</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredFPOs.map((fpo) => (
-                  <TableRow key={fpo.id}>
-                    <TableCell className="font-medium">{fpo.name}</TableCell>
-                    <TableCell>
-                      <code className="text-xs bg-muted px-2 py-1 rounded">
-                        {fpo.registrationNumber}
-                      </code>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">
-                        <Users className="mr-1 h-3 w-3" />
-                        {fpo.members}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {fpo.location ? (
-                        <span className="text-sm">
-                          {fpo.location.village}, {fpo.location.district}
-                        </span>
-                      ) : (
-                        <Badge variant="outline" className="text-orange-500 border-orange-500">
-                          Not Set
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm">
-                          <MapPin className="mr-2 h-4 w-4" />
-                          Location
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Plus className="mr-2 h-4 w-4" />
-                          Members
-                        </Button>
-                      </div>
-                    </TableCell>
+          {fpos.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No FPOs in the database yet.</p>
+              <p className="text-sm mt-2">Go to CSV Upload to import FPOs.</p>
+            </div>
+          ) : (
+            <div className="border rounded-lg overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Registration #</TableHead>
+                    <TableHead>Members</TableHead>
+                    <TableHead>Location</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredFPOs.map((fpo) => (
+                    <TableRow key={fpo.id}>
+                      <TableCell className="font-medium">
+                        {fpo.name}
+                        {fpo.nameLocal && (
+                          <span className="block text-sm text-muted-foreground">
+                            {fpo.nameLocal}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {fpo.registrationNumber ? (
+                          <code className="text-xs bg-muted px-2 py-1 rounded">
+                            {fpo.registrationNumber}
+                          </code>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          <Users className="mr-1 h-3 w-3" />
+                          {fpo._count?.members ?? 0}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {fpo.village ? (
+                          <span className="text-sm">
+                            {fpo.village.name}, {fpo.village.block.district.name}
+                          </span>
+                        ) : (
+                          <Badge variant="outline" className="text-orange-500 border-orange-500">
+                            Not Set
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -166,6 +166,13 @@ export async function deleteFPO(id: string) {
   return apiFetch(`/admin/fpos/${id}`, { method: "DELETE" });
 }
 
+export async function getServiceProviders(params?: { page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  return apiFetch(`/admin/service-providers?${query}`);
+}
+
 // Location data (for dropdowns)
 export async function getStates(countryCode?: string) {
   const query = countryCode ? `?country=${countryCode}` : "";
