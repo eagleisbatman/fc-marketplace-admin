@@ -50,6 +50,11 @@ type UploadCardProps = {
   config: UploadConfig;
 };
 
+// File upload limits
+const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const MAX_ROW_COUNT = 10000;
+
 export function UploadCard({ config }: UploadCardProps) {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<UploadResult | null>(null);
@@ -66,6 +71,13 @@ export function UploadCard({ config }: UploadCardProps) {
       const file = event.target.files?.[0];
       if (!file) return;
 
+      // Check file size
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast.error(`File too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`);
+        event.target.value = "";
+        return;
+      }
+
       setFileName(file.name);
       setResult(null);
 
@@ -80,6 +92,16 @@ export function UploadCard({ config }: UploadCardProps) {
         } else {
           const text = await file.text();
           rows = parseCSV(text);
+        }
+
+        // Check row count
+        if (rows.length > MAX_ROW_COUNT) {
+          toast.error(`Too many rows. Maximum is ${MAX_ROW_COUNT.toLocaleString()} rows.`);
+          event.target.value = "";
+          setFullData([]);
+          setPreviewData([]);
+          setFileName("");
+          return;
         }
 
         setFullData(rows);

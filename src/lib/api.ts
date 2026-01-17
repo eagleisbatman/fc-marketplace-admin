@@ -13,13 +13,31 @@ type ImportResult = {
   errors: string[];
 };
 
+/**
+ * Get CSRF token from cookies
+ */
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 // Generic fetch wrapper with authentication
 // Uses httpOnly cookies for secure token storage (credentials: 'include')
+// Includes CSRF token for state-changing requests
 async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...options?.headers,
   };
+
+  // Add CSRF token header for state-changing requests
+  const method = options?.method?.toUpperCase() || "GET";
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      (headers as Record<string, string>)["X-CSRF-Token"] = csrfToken;
+    }
+  }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
