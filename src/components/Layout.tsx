@@ -44,16 +44,50 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/dashboard/import", label: "Bulk Import", icon: Upload },
-  { path: "/dashboard/users", label: "Users", icon: Users },
-  { path: "/dashboard/fpos", label: "FPOs", icon: Building2 },
-  { path: "/dashboard/providers", label: "Service Providers", icon: Store },
-  { path: "/dashboard/brands", label: "Brands", icon: Tag },
-  { path: "/dashboard/products", label: "Products", icon: Package },
-  { path: "/dashboard/locations", label: "Locations", icon: MapPin },
+type NavItem = {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+type NavSection = {
+  title: string;
+  items: NavItem[];
+};
+
+const navSections: NavSection[] = [
+  {
+    title: "Overview",
+    items: [
+      { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { path: "/dashboard/import", label: "Bulk Import", icon: Upload },
+    ],
+  },
+  {
+    title: "FPO Management",
+    items: [
+      { path: "/dashboard/fpos", label: "FPOs", icon: Building2 },
+      { path: "/dashboard/users", label: "Farmers", icon: Users },
+    ],
+  },
+  {
+    title: "Supply Chain",
+    items: [
+      { path: "/dashboard/providers", label: "Service Providers", icon: Store },
+      { path: "/dashboard/brands", label: "Brands", icon: Tag },
+      { path: "/dashboard/products", label: "Products", icon: Package },
+    ],
+  },
+  {
+    title: "Settings",
+    items: [
+      { path: "/dashboard/locations", label: "Locations", icon: MapPin },
+    ],
+  },
 ];
+
+// Flatten for mobile navigation
+const navItems = navSections.flatMap((section) => section.items);
 
 const getRoleBadge = (user: { role: string; countryName?: string; stateName?: string }) => {
   if (user.role === "super_admin") return "Super Admin";
@@ -174,45 +208,59 @@ export function Layout({ children }: { children: React.ReactNode }) {
             sidebarCollapsed ? "w-16" : "w-64"
           )}
         >
-          <nav className="flex-1 space-y-1 p-2">
+          <nav className="flex-1 overflow-y-auto p-2">
             <TooltipProvider delayDuration={0}>
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.path;
+              {navSections.map((section, sectionIndex) => (
+                <div key={section.title} className={cn(sectionIndex > 0 && "mt-4")}>
+                  {!sidebarCollapsed && (
+                    <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {section.title}
+                    </div>
+                  )}
+                  {sidebarCollapsed && sectionIndex > 0 && (
+                    <div className="h-px bg-border mx-2 my-2" />
+                  )}
+                  <div className="space-y-1">
+                    {section.items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = location.pathname === item.path;
 
-                if (sidebarCollapsed) {
-                  return (
-                    <Tooltip key={item.path}>
-                      <TooltipTrigger asChild>
-                        <Link to={item.path}>
+                      if (sidebarCollapsed) {
+                        return (
+                          <Tooltip key={item.path}>
+                            <TooltipTrigger asChild>
+                              <Link to={item.path}>
+                                <Button
+                                  variant={isActive ? "secondary" : "ghost"}
+                                  size="icon"
+                                  className={cn("w-full", isActive && "bg-secondary")}
+                                >
+                                  <Icon className="h-5 w-5" />
+                                </Button>
+                              </Link>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                              {item.label}
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      }
+
+                      return (
+                        <Link key={item.path} to={item.path}>
                           <Button
                             variant={isActive ? "secondary" : "ghost"}
-                            size="icon"
-                            className={cn("w-full", isActive && "bg-secondary")}
+                            className={cn("w-full justify-start", isActive && "bg-secondary")}
                           >
-                            <Icon className="h-5 w-5" />
+                            <Icon className="mr-2 h-4 w-4" />
+                            {item.label}
                           </Button>
                         </Link>
-                      </TooltipTrigger>
-                      <TooltipContent side="right">
-                        {item.label}
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                }
-
-                return (
-                  <Link key={item.path} to={item.path}>
-                    <Button
-                      variant={isActive ? "secondary" : "ghost"}
-                      className={cn("w-full justify-start", isActive && "bg-secondary")}
-                    >
-                      <Icon className="mr-2 h-4 w-4" />
-                      {item.label}
-                    </Button>
-                  </Link>
-                );
-              })}
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </TooltipProvider>
           </nav>
 

@@ -584,3 +584,116 @@ export async function updateFpoDocument(fpoId: string, docId: string, data: {
 export async function deleteFpoDocument(fpoId: string, docId: string) {
   return apiFetch<{ success: boolean }>(`/admin/fpos/${fpoId}/documents/${docId}`, { method: "DELETE" });
 }
+
+// ============================================
+// FPO Coverage
+// ============================================
+
+export type CoverageArea = {
+  id: string;
+  stateId: string;
+  districtId?: string;
+  blockId?: string;
+  villageId?: string;
+  state: { id: string; name: string; code: string };
+  district?: { id: string; name: string };
+  block?: { id: string; name: string };
+  village?: { id: string; name: string };
+  isActive: boolean;
+  createdAt: string;
+};
+
+export async function getFpoCoverage(fpoId: string) {
+  return apiFetch<{ success: boolean; data: { coverage: CoverageArea[] } }>(`/admin/fpos/${fpoId}/coverage`);
+}
+
+export async function addFpoCoverage(fpoId: string, data: {
+  stateId: string;
+  districtId?: string;
+  blockId?: string;
+  villageId?: string;
+} | Array<{
+  stateId: string;
+  districtId?: string;
+  blockId?: string;
+  villageId?: string;
+}>) {
+  return apiFetch<{ success: boolean; data: { coverage: CoverageArea | CoverageArea[] } }>(`/admin/fpos/${fpoId}/coverage`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteFpoCoverage(fpoId: string, coverageId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/fpos/${fpoId}/coverage/${coverageId}`, { method: "DELETE" });
+}
+
+export async function updateFpoCoverage(fpoId: string, coverage: Array<{
+  stateId: string;
+  districtId?: string;
+  blockId?: string;
+  villageId?: string;
+}>) {
+  return apiFetch<{ success: boolean; data: { coverage: CoverageArea[] } }>(`/admin/fpos/${fpoId}/coverage`, {
+    method: "PUT",
+    body: JSON.stringify(coverage),
+  });
+}
+
+// ============================================
+// Service Provider Coverage
+// ============================================
+
+export async function getProviderCoverage(providerId: string) {
+  return apiFetch<{ success: boolean; data: { coverage: CoverageArea[] } }>(`/admin/service-providers/${providerId}/coverage`);
+}
+
+export async function addProviderCoverage(providerId: string, data: {
+  stateId: string;
+  districtId?: string;
+  blockId?: string;
+  villageId?: string;
+} | Array<{
+  stateId: string;
+  districtId?: string;
+  blockId?: string;
+  villageId?: string;
+}>) {
+  return apiFetch<{ success: boolean; data: { coverage: CoverageArea | CoverageArea[] } }>(`/admin/service-providers/${providerId}/coverage`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteProviderCoverage(providerId: string, coverageId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/service-providers/${providerId}/coverage/${coverageId}`, { method: "DELETE" });
+}
+
+export async function updateProviderCoverage(providerId: string, coverage: Array<{
+  stateId: string;
+  districtId?: string;
+  blockId?: string;
+  villageId?: string;
+}>) {
+  return apiFetch<{ success: boolean; data: { coverage: CoverageArea[] } }>(`/admin/service-providers/${providerId}/coverage`, {
+    method: "PUT",
+    body: JSON.stringify(coverage),
+  });
+}
+
+// Location data by ID (for coverage selector)
+export async function getStatesById() {
+  return apiFetch<{ success: boolean; data: Array<{ id: string; code: string; name: string }> }>("/admin/locations/states");
+}
+
+export async function getDistrictsByStateId(stateId: string) {
+  return apiFetch<{ success: boolean; data: Array<{ id: string; name: string }> }>(`/admin/locations/districts?stateId=${stateId}`);
+}
+
+export async function getBlocksByDistrictId(districtId: string) {
+  return apiFetch<{ success: boolean; data: Array<{ id: string; name: string }> }>(`/admin/locations/blocks?district=${districtId}`);
+}
+
+export async function getVillagesByBlockId(blockId: string) {
+  return apiFetch<{ success: boolean; data: Array<{ id: string; name: string }> }>(`/admin/locations/villages?block=${blockId}`);
+}

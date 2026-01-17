@@ -31,11 +31,13 @@ import {
   ChevronRight,
   UserPlus,
   FileText,
+  Globe,
 } from "lucide-react";
 import type { FPO, FPOMember } from "@/types/fpo.types";
 import type { FpoDocument } from "@/lib/api";
 import { MembersPanel } from "./MembersPanel";
 import { DocumentsPanel } from "./DocumentsPanel";
+import { CoveragePanel } from "./CoveragePanel";
 
 type FPOTableProps = {
   fpos: FPO[];
@@ -208,6 +210,10 @@ export function FPOTable({
                               <Users className="h-4 w-4" />
                               Members ({members.length})
                             </TabsTrigger>
+                            <TabsTrigger value="coverage" className="gap-2">
+                              <Globe className="h-4 w-4" />
+                              Coverage
+                            </TabsTrigger>
                             <TabsTrigger value="documents" className="gap-2">
                               <FileText className="h-4 w-4" />
                               Documents ({documents.length})
@@ -226,6 +232,10 @@ export function FPOTable({
                                 onChangeRole(fpo, member)
                               }
                             />
+                          </TabsContent>
+
+                          <TabsContent value="coverage">
+                            <CoveragePanel fpoId={fpo.id} />
                           </TabsContent>
 
                           <TabsContent value="documents">
