@@ -85,7 +85,7 @@ export function useProducts() {
   }, []);
 
   // Load products
-  const loadProducts = useCallback(async () => {
+  const loadProducts = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       const response = (await getProducts({
@@ -95,7 +95,9 @@ export function useProducts() {
         categoryId: filters.categoryId || undefined,
         brandId: filters.brandId || undefined,
         providerId: filters.providerId || undefined,
-      })) as ProductsResponse;
+      }, signal)) as ProductsResponse;
+
+      if (signal?.aborted) return;
 
       if (response.success && response.data) {
         setProducts(response.data.products);
@@ -106,10 +108,13 @@ export function useProducts() {
         }));
       }
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       console.error("Failed to load products:", err);
       toast.error("Failed to load products");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, [pagination.currentPage, pagination.pageSize, filters]);
 
@@ -277,7 +282,9 @@ export function useProducts() {
   // Load products when dependencies change
   useEffect(() => {
     if (!refDataLoading) {
-      loadProducts();
+      const controller = new AbortController();
+      loadProducts(controller.signal);
+      return () => controller.abort();
     }
   }, [loadProducts, refDataLoading]);
 

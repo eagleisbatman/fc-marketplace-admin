@@ -114,7 +114,12 @@ export function FPOTable({
                 <TableRow className="cursor-pointer hover:bg-muted/50">
                   <TableCell>
                     <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        aria-label={expandedFpoId === fpo.id ? "Collapse FPO details" : "Expand FPO details"}
+                      >
                         {expandedFpoId === fpo.id ? (
                           <ChevronDown className="h-4 w-4" />
                         ) : (
@@ -161,7 +166,7 @@ export function FPOTable({
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" aria-label="FPO actions">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>

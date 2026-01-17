@@ -143,7 +143,7 @@ export function Brands() {
                 className="pl-9"
               />
             </div>
-            <Button variant="outline" size="icon" onClick={loadBrands}>
+            <Button variant="outline" size="icon" onClick={() => loadBrands()} aria-label="Refresh brands">
               <RefreshCw
                 className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
               />

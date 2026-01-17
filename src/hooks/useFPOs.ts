@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   getFPOs,
   createFPO,
@@ -55,6 +55,9 @@ export function useFPOs() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [members, setMembers] = useState<FPOMember[]>([]);
 
+  // Ref to track the current expanded FPO to prevent race conditions
+  const currentExpandedFpoRef = useRef<string | null>(null);
+
   // Documents state
   const [documents, setDocuments] = useState<FpoDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
@@ -64,7 +67,7 @@ export function useFPOs() {
   const [farmersLoading, setFarmersLoading] = useState(false);
 
   // Load FPOs
-  const loadFPOs = useCallback(async () => {
+  const loadFPOs = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       setError(null);
@@ -92,7 +95,7 @@ export function useFPOs() {
       if (filters.hasLocation === "yes") params.hasLocation = true;
       if (filters.hasLocation === "no") params.hasLocation = false;
 
-      const response = (await getFPOs(params)) as {
+      const response = (await getFPOs(params, signal)) as {
         success: boolean;
         data?: {
           fpos: FPO[];
@@ -104,6 +107,9 @@ export function useFPOs() {
           };
         };
       };
+
+      if (signal?.aborted) return;
+
       if (response.success && response.data) {
         setFpos(response.data.fpos || []);
         setPagination((prev) => ({
@@ -113,9 +119,12 @@ export function useFPOs() {
         }));
       }
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "Failed to load FPOs");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, [pagination.currentPage, pagination.pageSize, filters, selectedCountry?.code]);
 
@@ -127,14 +136,19 @@ export function useFPOs() {
         success: boolean;
         data?: { members: FPOMember[] };
       };
-      if (response.success && response.data) {
+      // Only update state if this FPO is still the expanded one (race condition fix)
+      if (currentExpandedFpoRef.current === fpoId && response.success && response.data) {
         setMembers(response.data.members || []);
       }
     } catch (err) {
       console.error("Failed to load members:", err);
-      toast.error("Failed to load FPO members");
+      if (currentExpandedFpoRef.current === fpoId) {
+        toast.error("Failed to load FPO members");
+      }
     } finally {
-      setMembersLoading(false);
+      if (currentExpandedFpoRef.current === fpoId) {
+        setMembersLoading(false);
+      }
     }
   }, []);
 
@@ -143,14 +157,19 @@ export function useFPOs() {
     try {
       setDocumentsLoading(true);
       const response = await getFpoDocuments(fpoId);
-      if (response.success && response.data) {
+      // Only update state if this FPO is still the expanded one (race condition fix)
+      if (currentExpandedFpoRef.current === fpoId && response.success && response.data) {
         setDocuments(response.data);
       }
     } catch (err) {
       console.error("Failed to load documents:", err);
-      toast.error("Failed to load FPO documents");
+      if (currentExpandedFpoRef.current === fpoId) {
+        toast.error("Failed to load FPO documents");
+      }
     } finally {
-      setDocumentsLoading(false);
+      if (currentExpandedFpoRef.current === fpoId) {
+        setDocumentsLoading(false);
+      }
     }
   }, []);
 
@@ -176,11 +195,19 @@ export function useFPOs() {
   const toggleExpand = useCallback(
     async (fpoId: string) => {
       if (expandedFpoId === fpoId) {
+        // Collapsing the current FPO
+        currentExpandedFpoRef.current = null;
         setExpandedFpoId(null);
         setMembers([]);
         setDocuments([]);
       } else {
+        // Expanding a new FPO - update ref BEFORE state to prevent race conditions
+        currentExpandedFpoRef.current = fpoId;
         setExpandedFpoId(fpoId);
+        // Clear previous data immediately
+        setMembers([]);
+        setDocuments([]);
+        // Load new data
         await Promise.all([loadMembers(fpoId), loadDocuments(fpoId)]);
       }
     },
@@ -352,11 +379,13 @@ export function useFPOs() {
   // Pagination handlers
   const setCurrentPage = useCallback((page: number) => {
     setPagination((prev) => ({ ...prev, currentPage: page }));
+    currentExpandedFpoRef.current = null;
     setExpandedFpoId(null);
   }, []);
 
   const setPageSize = useCallback((size: number) => {
     setPagination((prev) => ({ ...prev, pageSize: size, currentPage: 1 }));
+    currentExpandedFpoRef.current = null;
     setExpandedFpoId(null);
   }, []);
 
@@ -385,7 +414,9 @@ export function useFPOs() {
 
   // Load FPOs when dependencies change
   useEffect(() => {
-    loadFPOs();
+    const controller = new AbortController();
+    loadFPOs(controller.signal);
+    return () => controller.abort();
   }, [loadFPOs]);
 
   // Clear all state when country changes
@@ -394,6 +425,7 @@ export function useFPOs() {
     setMembers([]);
     setDocuments([]);
     setPagination((prev) => ({ ...prev, currentPage: 1 }));
+    currentExpandedFpoRef.current = null;
     setExpandedFpoId(null);
     setFilters({
       search: "",
@@ -401,6 +433,16 @@ export function useFPOs() {
       hasLocation: "all",
     });
   }, [selectedCountry?.id]);
+
+  // Wrapped setter that also updates the ref (for external use)
+  const setExpandedFpoIdWithRef = useCallback((id: string | null) => {
+    currentExpandedFpoRef.current = id;
+    setExpandedFpoId(id);
+    if (id === null) {
+      setMembers([]);
+      setDocuments([]);
+    }
+  }, []);
 
   return {
     // Data
@@ -437,6 +479,6 @@ export function useFPOs() {
     setPageSize,
     updateFilters,
     clearFilters,
-    setExpandedFpoId,
+    setExpandedFpoId: setExpandedFpoIdWithRef,
   };
 }

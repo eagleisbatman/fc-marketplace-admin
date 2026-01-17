@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,8 @@ import {
 } from "@/components/ui/select";
 import { Search, RefreshCw, Filter, X, Calendar, ChevronDown } from "lucide-react";
 import { LocationSelector } from "@/components/LocationSelector";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useAdmin } from "@/contexts/AdminContext";
 import type { UserFilters as UserFiltersType } from "@/types/user.types";
 
 type UserFiltersProps = {
@@ -37,6 +40,24 @@ export function UserFilters({
   onRefresh,
   loading,
 }: UserFiltersProps) {
+  const { selectedCountry } = useAdmin();
+
+  // Local search state for debouncing
+  const [localSearch, setLocalSearch] = useState(filters.search);
+  const debouncedSearch = useDebounce(localSearch, 300);
+
+  // Sync debounced search with parent
+  useEffect(() => {
+    if (debouncedSearch !== filters.search) {
+      onFiltersChange({ search: debouncedSearch });
+    }
+  }, [debouncedSearch, filters.search, onFiltersChange]);
+
+  // Sync local search when filters.search changes externally (e.g., clear filters)
+  useEffect(() => {
+    setLocalSearch(filters.search);
+  }, [filters.search]);
+
   const hasActiveFilters =
     filters.filterLocation.stateCode ||
     filters.filterLocation.districtId ||
@@ -53,8 +74,8 @@ export function UserFilters({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name, phone or email..."
-            value={filters.search}
-            onChange={(e) => onFiltersChange({ search: e.target.value })}
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
             className="pl-9"
           />
         </div>
@@ -104,6 +125,7 @@ export function UserFilters({
                 <LocationSelector
                   value={filters.filterLocation}
                   onChange={(val) => onFiltersChange({ filterLocation: val })}
+                  countryFilter={selectedCountry?.code}
                 />
               </div>
 

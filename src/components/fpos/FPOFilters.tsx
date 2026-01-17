@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,8 @@ import {
 } from "@/components/ui/collapsible";
 import { Search, RefreshCw, Filter, ChevronDown, X } from "lucide-react";
 import { LocationSelector } from "@/components/LocationSelector";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useAdmin } from "@/contexts/AdminContext";
 import type { FPOFilters as FPOFiltersType } from "@/types/fpo.types";
 
 type FPOFiltersProps = {
@@ -36,6 +39,24 @@ export function FPOFilters({
   onClearFilters,
   onRefresh,
 }: FPOFiltersProps) {
+  const { selectedCountry } = useAdmin();
+
+  // Local search state for debouncing
+  const [localSearch, setLocalSearch] = useState(filters.search);
+  const debouncedSearch = useDebounce(localSearch, 300);
+
+  // Sync debounced search with parent
+  useEffect(() => {
+    if (debouncedSearch !== filters.search) {
+      onFiltersChange({ search: debouncedSearch });
+    }
+  }, [debouncedSearch, filters.search, onFiltersChange]);
+
+  // Sync local search when filters.search changes externally (e.g., clear filters)
+  useEffect(() => {
+    setLocalSearch(filters.search);
+  }, [filters.search]);
+
   return (
     <>
       <div className="flex gap-4 mb-4">
@@ -43,8 +64,8 @@ export function FPOFilters({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name or registration number..."
-            value={filters.search}
-            onChange={(e) => onFiltersChange({ search: e.target.value })}
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
             className="pl-9"
           />
         </div>
@@ -100,6 +121,7 @@ export function FPOFilters({
                 <LocationSelector
                   value={filters.location}
                   onChange={(val) => onFiltersChange({ location: val })}
+                  countryFilter={selectedCountry?.code}
                 />
               </div>
 

@@ -26,14 +26,16 @@ export function useBrands() {
     totalPages,
   };
 
-  const loadBrands = useCallback(async () => {
+  const loadBrands = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       const response = (await getBrands({
         page: currentPage,
         limit: pageSize,
         search: search || undefined,
-      })) as BrandsResponse;
+      }, signal)) as BrandsResponse;
+
+      if (signal?.aborted) return;
 
       if (response.success && response.data) {
         setBrands(response.data.brands);
@@ -41,15 +43,20 @@ export function useBrands() {
         setTotalPages(response.data.pagination.pages);
       }
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       console.error("Failed to load brands:", err);
       toast.error("Failed to load brands");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, [currentPage, pageSize, search]);
 
   useEffect(() => {
-    loadBrands();
+    const controller = new AbortController();
+    loadBrands(controller.signal);
+    return () => controller.abort();
   }, [loadBrands]);
 
   // Debounced search

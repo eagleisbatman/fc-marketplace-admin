@@ -225,7 +225,7 @@ export async function getFPOs(params?: {
   blockId?: string;
   villageId?: string;
   hasLocation?: boolean;
-}) {
+}, signal?: AbortSignal) {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
@@ -238,7 +238,7 @@ export async function getFPOs(params?: {
   if (params?.blockId) query.set("blockId", params.blockId);
   if (params?.villageId) query.set("villageId", params.villageId);
   if (params?.hasLocation !== undefined) query.set("hasLocation", String(params.hasLocation));
-  return apiFetch(`/admin/fpos?${query}`);
+  return apiFetch(`/admin/fpos?${query}`, { signal });
 }
 
 export async function getFPO(id: string) {
@@ -387,13 +387,13 @@ export async function getCountries(params?: { activeOnly?: boolean }) {
 // CRUD operations - Brands
 // ============================================
 
-export async function getBrands(params?: { page?: number; limit?: number; search?: string; countryCode?: string }) {
+export async function getBrands(params?: { page?: number; limit?: number; search?: string; countryCode?: string }, signal?: AbortSignal) {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   if (params?.search) query.set("search", params.search);
   if (params?.countryCode) query.set("countryCode", params.countryCode);
-  return apiFetch(`/admin/brands?${query}`);
+  return apiFetch(`/admin/brands?${query}`, { signal });
 }
 
 export async function getBrand(id: string) {
@@ -441,7 +441,7 @@ export async function getProducts(params?: {
   brandId?: string;
   providerId?: string;
   countryCode?: string;
-}) {
+}, signal?: AbortSignal) {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
@@ -450,7 +450,7 @@ export async function getProducts(params?: {
   if (params?.brandId) query.set("brandId", params.brandId);
   if (params?.providerId) query.set("providerId", params.providerId);
   if (params?.countryCode) query.set("countryCode", params.countryCode);
-  return apiFetch(`/admin/products?${query}`);
+  return apiFetch(`/admin/products?${query}`, { signal });
 }
 
 export async function getProduct(id: string) {

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
 import { LocationSelector } from "@/components/LocationSelector";
+import { useAdmin } from "@/contexts/AdminContext";
 import type { CreateFPOForm } from "@/types/fpo.types";
 
 type CreateFPODialogProps = {
@@ -30,6 +31,8 @@ export function CreateFPODialog({
   onSubmit,
   saving,
 }: CreateFPODialogProps) {
+  const { selectedCountry } = useAdmin();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
@@ -107,6 +110,7 @@ export function CreateFPODialog({
             <LocationSelector
               value={formData.location}
               onChange={(val) => onFormChange({ ...formData, location: val })}
+              countryFilter={selectedCountry?.code}
               className="mt-2"
             />
           </div>

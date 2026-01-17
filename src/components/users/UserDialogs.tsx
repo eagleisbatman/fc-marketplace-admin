@@ -19,6 +19,7 @@ import { Loader2 } from "lucide-react";
 import { LocationSelector } from "@/components/LocationSelector";
 import type { LocationValue } from "@/components/LocationSelector";
 import { FPOSelector } from "@/components/FPOSelector";
+import { useAdmin } from "@/contexts/AdminContext";
 import type { User } from "@/types/user.types";
 
 // Delete User Dialog
@@ -80,6 +81,8 @@ export function LocationDialog({
   onSave,
   saving,
 }: LocationDialogProps) {
+  const { selectedCountry } = useAdmin();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -89,7 +92,7 @@ export function LocationDialog({
           </DialogTitle>
           <DialogDescription>Set location for {user?.name}</DialogDescription>
         </DialogHeader>
-        <LocationSelector value={locationValue} onChange={onLocationChange} />
+        <LocationSelector value={locationValue} onChange={onLocationChange} countryFilter={selectedCountry?.code} />
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
@@ -187,6 +190,8 @@ export function BulkAssignLocationDialog({
   onAssign,
   saving,
 }: BulkAssignLocationDialogProps) {
+  const { selectedCountry } = useAdmin();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -196,7 +201,7 @@ export function BulkAssignLocationDialog({
             Set location for {selectedCount} selected users
           </DialogDescription>
         </DialogHeader>
-        <LocationSelector value={locationValue} onChange={onLocationChange} />
+        <LocationSelector value={locationValue} onChange={onLocationChange} countryFilter={selectedCountry?.code} />
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

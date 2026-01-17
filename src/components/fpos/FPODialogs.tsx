@@ -20,6 +20,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { LocationSelector } from "@/components/LocationSelector";
 import type { LocationValue } from "@/components/LocationSelector";
+import { useAdmin } from "@/contexts/AdminContext";
 import type { FPO, FPOMember, FarmerUser, DocumentForm } from "@/types/fpo.types";
 import type { FpoDocument } from "@/lib/api";
 
@@ -83,6 +84,8 @@ export function LocationDialog({
   onSave,
   saving,
 }: LocationDialogProps) {
+  const { selectedCountry } = useAdmin();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -92,7 +95,7 @@ export function LocationDialog({
           </DialogTitle>
           <DialogDescription>Set location for {fpo?.name}</DialogDescription>
         </DialogHeader>
-        <LocationSelector value={locationValue} onChange={onLocationChange} />
+        <LocationSelector value={locationValue} onChange={onLocationChange} countryFilter={selectedCountry?.code} />
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

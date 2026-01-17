@@ -80,7 +80,7 @@ export function ProductFilters({
             Clear
           </Button>
         )}
-        <Button variant="outline" size="icon" onClick={onRefresh}>
+        <Button variant="outline" size="icon" onClick={onRefresh} aria-label="Refresh products">
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
       </div>

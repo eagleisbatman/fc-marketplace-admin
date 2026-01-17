@@ -159,7 +159,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </div>
             )}
             <ThemeToggle />
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Logout">
               <LogOut className="h-5 w-5" />
             </Button>
           </div>
@@ -267,7 +267,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {/* More menu button */}
             <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" aria-label="More navigation">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>

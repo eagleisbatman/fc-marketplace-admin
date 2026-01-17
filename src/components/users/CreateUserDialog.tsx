@@ -19,6 +19,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { LocationSelector } from "@/components/LocationSelector";
 import { FPOSelector } from "@/components/FPOSelector";
+import { useAdmin } from "@/contexts/AdminContext";
 import type { CreateUserForm, Country, State } from "@/types/user.types";
 
 type CreateUserDialogProps = {
@@ -50,6 +51,8 @@ export function CreateUserDialog({
   onLoadCountries,
   onLoadAdminStates,
 }: CreateUserDialogProps) {
+  const { selectedCountry } = useAdmin();
+
   // Load countries when admin type is selected
   if (formData.type === "admin" && countries.length === 0 && !loadingCountries) {
     onLoadCountries();
@@ -228,6 +231,7 @@ export function CreateUserDialog({
             <LocationSelector
               value={formData.location}
               onChange={(val) => onFormChange({ ...formData, location: val })}
+              countryFilter={selectedCountry?.code}
               className="mt-2"
             />
           </div>

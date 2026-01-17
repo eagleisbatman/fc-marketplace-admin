@@ -123,7 +123,7 @@ export function DocumentsPanel({
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       {sanitizeDocumentUrl(doc.fileUrl) && (
-                        <Button variant="ghost" size="icon" asChild>
+                        <Button variant="ghost" size="icon" asChild aria-label="Open document">
                           <a
                             href={sanitizeDocumentUrl(doc.fileUrl)}
                             target="_blank"
