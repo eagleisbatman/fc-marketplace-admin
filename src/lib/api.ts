@@ -13,34 +13,24 @@ type ImportResult = {
   errors: string[];
 };
 
-// Get auth token from localStorage
-function getAuthToken(): string | null {
-  return localStorage.getItem("fc-admin-token");
-}
-
 // Generic fetch wrapper with authentication
+// Uses httpOnly cookies for secure token storage (credentials: 'include')
 async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const token = getAuthToken();
-
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...options?.headers,
   };
 
-  // Add Authorization header if token exists
-  if (token) {
-    (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
-  }
-
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers,
+    credentials: 'include', // Send httpOnly cookies with request
   });
 
-  // Handle 401 Unauthorized - clear token and redirect to login
+  // Handle 401 Unauthorized - redirect to login
   if (response.status === 401) {
-    localStorage.removeItem("fc-admin-token");
-    localStorage.removeItem("fc-admin-user");
+    // Clear any stored user data (but not tokens - they're in httpOnly cookies)
+    sessionStorage.removeItem("fc-admin-user");
     window.location.href = "/login";
     throw new Error("Session expired. Please log in again.");
   }
@@ -51,6 +41,15 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> 
   }
 
   return response.json();
+}
+
+// Logout - calls backend to clear httpOnly cookies
+export async function logoutAdmin(): Promise<void> {
+  await fetch(`${API_URL}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  sessionStorage.removeItem("fc-admin-user");
 }
 
 // Auth endpoints
@@ -133,12 +132,36 @@ export async function importLocations(
 }
 
 // CRUD operations - Users
-export async function getUsers(params?: { type?: string; page?: number; limit?: number }) {
+export async function getUsers(params?: {
+  type?: string;
+  page?: number;
+  limit?: number;
+  // Country filter (for multi-country support)
+  countryCode?: string;
+  // Advanced filters
+  stateCode?: string;
+  districtId?: string;
+  blockId?: string;
+  villageId?: string;
+  createdAfter?: string;
+  createdBefore?: string;
+  hasLocation?: boolean;
+}, signal?: AbortSignal) {
   const query = new URLSearchParams();
   if (params?.type) query.set("type", params.type);
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
-  return apiFetch(`/admin/users?${query}`);
+  // Country filter
+  if (params?.countryCode) query.set("countryCode", params.countryCode);
+  // Advanced filters
+  if (params?.stateCode) query.set("stateCode", params.stateCode);
+  if (params?.districtId) query.set("districtId", params.districtId);
+  if (params?.blockId) query.set("blockId", params.blockId);
+  if (params?.villageId) query.set("villageId", params.villageId);
+  if (params?.createdAfter) query.set("createdAfter", params.createdAfter);
+  if (params?.createdBefore) query.set("createdBefore", params.createdBefore);
+  if (params?.hasLocation !== undefined) query.set("hasLocation", String(params.hasLocation));
+  return apiFetch(`/admin/users?${query}`, signal ? { signal } : undefined);
 }
 
 export async function getUser(id: string) {
@@ -155,6 +178,10 @@ export async function createUser(data: {
   villageId?: string;
   fpoId?: string;
   fpoRole?: string;
+  // Admin-specific fields
+  adminRole?: "super_admin" | "country_admin" | "state_admin";
+  adminCountryId?: string;
+  adminStateId?: string;
 }) {
   return apiFetch("/admin/users", {
     method: "POST",
@@ -186,10 +213,31 @@ export async function bulkAssignUsers(params: {
 }
 
 // CRUD operations - FPOs
-export async function getFPOs(params?: { page?: number; limit?: number }) {
+export async function getFPOs(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  // Country filter (for multi-country support)
+  countryCode?: string;
+  // Advanced filters
+  stateCode?: string;
+  districtId?: string;
+  blockId?: string;
+  villageId?: string;
+  hasLocation?: boolean;
+}) {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.search) query.set("search", params.search);
+  // Country filter
+  if (params?.countryCode) query.set("countryCode", params.countryCode);
+  // Advanced filters
+  if (params?.stateCode) query.set("stateCode", params.stateCode);
+  if (params?.districtId) query.set("districtId", params.districtId);
+  if (params?.blockId) query.set("blockId", params.blockId);
+  if (params?.villageId) query.set("villageId", params.villageId);
+  if (params?.hasLocation !== undefined) query.set("hasLocation", String(params.hasLocation));
   return apiFetch(`/admin/fpos?${query}`);
 }
 
@@ -237,10 +285,11 @@ export async function updateFPOMemberRole(fpoId: string, userId: string, role: s
   });
 }
 
-export async function getServiceProviders(params?: { page?: number; limit?: number }) {
+export async function getServiceProviders(params?: { page?: number; limit?: number; countryCode?: string }) {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.countryCode) query.set("countryCode", params.countryCode);
   return apiFetch(`/admin/service-providers?${query}`);
 }
 
@@ -291,16 +340,11 @@ export async function removeFPOMember(fpoId: string, userId: string) {
 
 // Export data
 export async function exportData(dataType: string, format: "csv" | "json" = "csv") {
-  const token = getAuthToken();
-  const headers: HeadersInit = {};
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(`${API_URL}/admin/export/${dataType}?format=${format}`, { headers });
+  const response = await fetch(`${API_URL}/admin/export/${dataType}?format=${format}`, {
+    credentials: 'include', // Send httpOnly cookies with request
+  });
   if (response.status === 401) {
-    localStorage.removeItem("fc-admin-token");
-    localStorage.removeItem("fc-admin-user");
+    sessionStorage.removeItem("fc-admin-user");
     window.location.href = "/login";
     throw new Error("Session expired. Please log in again.");
   }
@@ -337,4 +381,188 @@ export async function getCountries(params?: { activeOnly?: boolean }) {
   if (params?.activeOnly) query.set("active", "true");
   const queryStr = query.toString() ? `?${query}` : "";
   return apiFetch(`/admin/locations/countries${queryStr}`);
+}
+
+// ============================================
+// CRUD operations - Brands
+// ============================================
+
+export async function getBrands(params?: { page?: number; limit?: number; search?: string; countryCode?: string }) {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.search) query.set("search", params.search);
+  if (params?.countryCode) query.set("countryCode", params.countryCode);
+  return apiFetch(`/admin/brands?${query}`);
+}
+
+export async function getBrand(id: string) {
+  return apiFetch(`/admin/brands/${id}`);
+}
+
+export async function createBrand(data: {
+  name: string;
+  nameLocal?: string;
+  logoUrl?: string;
+  website?: string;
+}) {
+  return apiFetch("/admin/brands", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateBrand(id: string, data: {
+  name?: string;
+  nameLocal?: string;
+  logoUrl?: string;
+  website?: string;
+  isActive?: boolean;
+}) {
+  return apiFetch(`/admin/brands/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteBrand(id: string) {
+  return apiFetch(`/admin/brands/${id}`, { method: "DELETE" });
+}
+
+// ============================================
+// CRUD operations - Products
+// ============================================
+
+export async function getProducts(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  categoryId?: string;
+  brandId?: string;
+  providerId?: string;
+  countryCode?: string;
+}) {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.search) query.set("search", params.search);
+  if (params?.categoryId) query.set("categoryId", params.categoryId);
+  if (params?.brandId) query.set("brandId", params.brandId);
+  if (params?.providerId) query.set("providerId", params.providerId);
+  if (params?.countryCode) query.set("countryCode", params.countryCode);
+  return apiFetch(`/admin/products?${query}`);
+}
+
+export async function getProduct(id: string) {
+  return apiFetch(`/admin/products/${id}`);
+}
+
+export async function createProduct(data: {
+  skuCode: string;
+  name: string;
+  nameLocal?: string;
+  description?: string;
+  descriptionLocal?: string;
+  categoryId: string;
+  brandId?: string;
+  providerId: string;
+  variety?: string;
+  unitId: string;
+  packSize?: string;
+  mrp: number;
+  sellingPrice?: number;
+  discountPercent?: number;
+  currencyId: string;
+  imageUrl?: string;
+  stockStatus?: string;
+}) {
+  return apiFetch("/admin/products", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateProduct(id: string, data: Record<string, unknown>) {
+  return apiFetch(`/admin/products/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteProduct(id: string) {
+  return apiFetch(`/admin/products/${id}`, { method: "DELETE" });
+}
+
+// ============================================
+// Reference data (for dropdowns)
+// ============================================
+
+export async function getCategories() {
+  return apiFetch("/admin/categories");
+}
+
+export async function getUnits() {
+  return apiFetch("/admin/units");
+}
+
+export async function getCurrencies() {
+  return apiFetch("/admin/currencies");
+}
+
+// ============================================
+// FPO Documents
+// ============================================
+
+export type FpoDocument = {
+  id: string;
+  fpoId: string;
+  name: string;
+  type: string;
+  description?: string;
+  fileUrl: string;
+  fileSize?: number;
+  mimeType?: string;
+  uploadedBy?: string;
+  uploader?: {
+    id: string;
+    name: string;
+  };
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function getFpoDocuments(fpoId: string) {
+  return apiFetch<{ success: boolean; data: FpoDocument[] }>(`/admin/fpos/${fpoId}/documents`);
+}
+
+export async function addFpoDocument(fpoId: string, data: {
+  name: string;
+  type: string;
+  description?: string;
+  fileUrl: string;
+  fileSize?: number;
+  mimeType?: string;
+}) {
+  return apiFetch<{ success: boolean; data: FpoDocument }>(`/admin/fpos/${fpoId}/documents`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateFpoDocument(fpoId: string, docId: string, data: {
+  name?: string;
+  type?: string;
+  description?: string;
+  fileUrl?: string;
+  isActive?: boolean;
+}) {
+  return apiFetch<{ success: boolean; data: FpoDocument }>(`/admin/fpos/${fpoId}/documents/${docId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteFpoDocument(fpoId: string, docId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/fpos/${fpoId}/documents/${docId}`, { method: "DELETE" });
 }

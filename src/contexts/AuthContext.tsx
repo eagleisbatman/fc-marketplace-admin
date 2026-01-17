@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
 type AdminRole = "super_admin" | "country_admin" | "state_admin";
@@ -17,7 +18,6 @@ type User = {
 
 type AuthContextType = {
   user: User | null;
-  token: string | null;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -32,37 +32,33 @@ const API_URL = API_BASE_URL ? `${API_BASE_URL}/api/v1` : "";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Restore session on mount
+  // Restore user info on mount (stored in sessionStorage, NOT localStorage)
+  // Token is stored in httpOnly cookie by backend, so we just restore user info
   useEffect(() => {
-    const storedToken = localStorage.getItem("fc-admin-token");
-    const storedUser = localStorage.getItem("fc-admin-user");
+    const storedUser = sessionStorage.getItem("fc-admin-user");
 
-    if (storedToken && storedUser) {
+    if (storedUser) {
       try {
-        setToken(storedToken);
+        // eslint-disable-next-line react-compiler/react-compiler
         setUser(JSON.parse(storedUser));
       } catch {
         // Invalid stored data, clear it
-        localStorage.removeItem("fc-admin-token");
-        localStorage.removeItem("fc-admin-user");
+        sessionStorage.removeItem("fc-admin-user");
       }
     }
     setIsLoading(false);
   }, []);
 
-  // Persist session changes
+  // Persist user info changes to sessionStorage (not token - it's in httpOnly cookie)
   useEffect(() => {
-    if (token && user) {
-      localStorage.setItem("fc-admin-token", token);
-      localStorage.setItem("fc-admin-user", JSON.stringify(user));
+    if (user) {
+      sessionStorage.setItem("fc-admin-user", JSON.stringify(user));
     } else {
-      localStorage.removeItem("fc-admin-token");
-      localStorage.removeItem("fc-admin-user");
+      sessionStorage.removeItem("fc-admin-user");
     }
-  }, [token, user]);
+  }, [user]);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
@@ -71,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", // Important: allows setting httpOnly cookies
         body: JSON.stringify({ email, password }),
       });
 
@@ -88,7 +85,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      const { accessToken, user: apiUser } = data.data;
+      const { user: apiUser } = data.data;
+      // Note: accessToken is now set as httpOnly cookie by backend, not stored in JS
 
       // Map API response to our User type
       const mappedUser: User = {
@@ -104,7 +102,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         stateName: apiUser.stateName,
       };
 
-      setToken(accessToken);
       setUser(mappedUser);
       return true;
     } catch (error) {
@@ -113,19 +110,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
-    setToken(null);
+  const logout = useCallback(async () => {
+    try {
+      // Call backend to clear httpOnly cookies
+      await fetch(`${API_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+    // Clear local state regardless of API call result
     setUser(null);
+    sessionStorage.removeItem("fc-admin-user");
   }, []);
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        token,
         login,
         logout,
-        isAuthenticated: !!user && !!token,
+        isAuthenticated: !!user,
         isLoading,
       }}
     >

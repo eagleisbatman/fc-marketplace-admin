@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { getFPOs } from "@/lib/api";
 import { Loader2, Plus, Search, Building2 } from "lucide-react";
+import { useAdmin } from "@/contexts/AdminContext";
 
 type FPO = {
   id: string;
@@ -52,16 +53,19 @@ export function FPOSelector({
   label = "FPO",
   showLabel = true,
 }: FPOSelectorProps) {
+  const { selectedCountry } = useAdmin();
   const [fpos, setFpos] = useState<FPO[]>([]);
   const [filteredFpos, setFilteredFpos] = useState<FPO[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Load FPOs on mount
+  // Load FPOs on mount and when country changes
   useEffect(() => {
     loadFPOs();
-  }, []);
+  }, [selectedCountry]);
+
+  const MAX_VISIBLE_ITEMS = 50;
 
   // Filter FPOs when search changes
   useEffect(() => {
@@ -75,14 +79,20 @@ export function FPOSelector({
       );
       setFilteredFpos(filtered);
     } else {
-      setFilteredFpos(fpos);
+      // When not searching, limit to MAX_VISIBLE_ITEMS
+      setFilteredFpos(fpos.slice(0, MAX_VISIBLE_ITEMS));
     }
   }, [search, fpos]);
+
+  const hasMoreFpos = !search && fpos.length > MAX_VISIBLE_ITEMS;
 
   const loadFPOs = async () => {
     try {
       setLoading(true);
-      const response = await getFPOs({ limit: 200 }) as { success: boolean; data?: { fpos: FPO[] } };
+      const response = await getFPOs({
+        limit: 200,
+        countryCode: selectedCountry?.code || undefined,
+      }) as { success: boolean; data?: { fpos: FPO[] } };
       if (response.success && response.data) {
         setFpos(response.data.fpos || []);
         setFilteredFpos(response.data.fpos || []);
@@ -143,12 +153,18 @@ export function FPOSelector({
             />
           </div>
 
+          {hasMoreFpos && (
+            <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/50">
+              Showing {filteredFpos.length} of {fpos.length} FPOs. Type to search all.
+            </div>
+          )}
+
           {filteredFpos.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
               {search ? "No FPOs found matching your search" : "No FPOs available"}
             </div>
           ) : (
-            filteredFpos.map((fpo) => (
+            filteredFpos.slice(0, MAX_VISIBLE_ITEMS).map((fpo) => (
               <SelectItem key={fpo.id} value={fpo.id}>
                 <div className="flex flex-col">
                   <span className="font-medium">{formatFpoDisplay(fpo)}</span>
@@ -165,6 +181,12 @@ export function FPOSelector({
                 </div>
               </SelectItem>
             ))
+          )}
+
+          {search && filteredFpos.length > MAX_VISIBLE_ITEMS && (
+            <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/50">
+              Showing {MAX_VISIBLE_ITEMS} of {filteredFpos.length} matches. Refine your search.
+            </div>
           )}
 
           {allowCreate && onCreateNew && (
@@ -190,7 +212,7 @@ export function FPOSelector({
   );
 }
 
-// Simple non-searchable version for forms where space is limited
+// Simple searchable version for forms where space is limited
 export function FPOSelectorSimple({
   value,
   onChange,
@@ -199,17 +221,25 @@ export function FPOSelectorSimple({
   label = "FPO",
   showLabel = true,
 }: Omit<FPOSelectorProps, "onCreateNew" | "allowCreate">) {
+  const { selectedCountry } = useAdmin();
   const [fpos, setFpos] = useState<FPO[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const MAX_ITEMS = 30;
 
   useEffect(() => {
     loadFPOs();
-  }, []);
+  }, [selectedCountry]);
 
   const loadFPOs = async () => {
     try {
       setLoading(true);
-      const response = await getFPOs({ limit: 200 }) as { success: boolean; data?: { fpos: FPO[] } };
+      const response = await getFPOs({
+        limit: 200,
+        countryCode: selectedCountry?.code || undefined,
+      }) as { success: boolean; data?: { fpos: FPO[] } };
       if (response.success && response.data) {
         setFpos(response.data.fpos || []);
       }
@@ -220,6 +250,17 @@ export function FPOSelectorSimple({
     }
   };
 
+  const filteredFpos = search
+    ? fpos.filter(
+        (fpo) =>
+          fpo.name.toLowerCase().includes(search.toLowerCase()) ||
+          (fpo.registrationNumber?.toLowerCase().includes(search.toLowerCase()) ?? false)
+      )
+    : fpos.slice(0, MAX_ITEMS);
+
+  const displayFpos = filteredFpos.slice(0, MAX_ITEMS);
+  const hasMore = !search && fpos.length > MAX_ITEMS;
+
   return (
     <div className="space-y-2">
       {showLabel && <Label>{label}</Label>}
@@ -227,6 +268,8 @@ export function FPOSelectorSimple({
         value={value || ""}
         onValueChange={(val) => onChange(val || undefined)}
         disabled={disabled || loading}
+        open={isOpen}
+        onOpenChange={setIsOpen}
       >
         <SelectTrigger>
           {loading ? (
@@ -236,12 +279,32 @@ export function FPOSelectorSimple({
           )}
         </SelectTrigger>
         <SelectContent>
-          {fpos.map((fpo) => (
+          <div className="flex items-center border-b px-3 pb-2">
+            <Search className="h-4 w-4 text-muted-foreground mr-2" />
+            <Input
+              placeholder="Search FPOs..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 border-0 focus-visible:ring-0 px-0"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          {hasMore && (
+            <div className="px-3 py-1 text-xs text-muted-foreground bg-muted/50">
+              Showing {displayFpos.length} of {fpos.length}. Type to search.
+            </div>
+          )}
+          {displayFpos.map((fpo) => (
             <SelectItem key={fpo.id} value={fpo.id}>
               {fpo.name}
               {fpo.registrationNumber && ` (${fpo.registrationNumber})`}
             </SelectItem>
           ))}
+          {filteredFpos.length === 0 && (
+            <div className="py-4 text-center text-sm text-muted-foreground">
+              No FPOs found
+            </div>
+          )}
         </SelectContent>
       </Select>
     </div>

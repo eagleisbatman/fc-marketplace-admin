@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 
@@ -39,7 +40,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const API_URL = API_BASE_URL ? `${API_BASE_URL}/api/v1` : "";
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
-  const { user, token, isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [selectedCountry, setSelectedCountryState] = useState<Country | null>(null);
   const [countries, setCountries] = useState<Country[]>([]);
   const [isLoadingCountries, setIsLoadingCountries] = useState(false);
@@ -52,12 +53,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   // Load countries for super_admin
   useEffect(() => {
-    if (isAuthenticated && user?.role === "super_admin" && token) {
+    if (isAuthenticated && user?.role === "super_admin") {
+      // eslint-disable-next-line react-compiler/react-compiler
       setIsLoadingCountries(true);
       fetch(`${API_URL}/admin/locations/countries`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include", // Use httpOnly cookies for authentication
       })
         .then((res) => res.json())
         .then((data) => {
@@ -76,11 +76,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           setIsLoadingCountries(false);
         });
     }
-  }, [isAuthenticated, user?.role, token]);
+  }, [isAuthenticated, user?.role]);
 
   // For country_admin or state_admin, auto-set their country
   useEffect(() => {
     if (isAuthenticated && user && user.role !== "super_admin" && user.countryId) {
+      // eslint-disable-next-line react-compiler/react-compiler
       setSelectedCountryState({
         id: user.countryId,
         code: user.countryCode || "",
@@ -90,28 +91,29 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, user]);
 
-  // Restore selected country for super_admin from localStorage
+  // Restore selected country for super_admin from sessionStorage
   useEffect(() => {
     if (isAuthenticated && user?.role === "super_admin") {
-      const storedCountry = localStorage.getItem("fc-admin-selected-country");
+      const storedCountry = sessionStorage.getItem("fc-admin-selected-country");
       if (storedCountry) {
         try {
           const country = JSON.parse(storedCountry);
+          // eslint-disable-next-line react-compiler/react-compiler
           setSelectedCountryState({
             ...country,
             flag: countryFlags[country.code] || "🌍",
           });
         } catch {
-          localStorage.removeItem("fc-admin-selected-country");
+          sessionStorage.removeItem("fc-admin-selected-country");
         }
       }
     }
   }, [isAuthenticated, user?.role]);
 
-  // Persist selected country to localStorage
+  // Persist selected country to sessionStorage
   useEffect(() => {
     if (selectedCountry && user?.role === "super_admin") {
-      localStorage.setItem(
+      sessionStorage.setItem(
         "fc-admin-selected-country",
         JSON.stringify({
           id: selectedCountry.id,
@@ -131,7 +133,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const clearCountrySelection = useCallback(() => {
     setSelectedCountryState(null);
-    localStorage.removeItem("fc-admin-selected-country");
+    sessionStorage.removeItem("fc-admin-selected-country");
   }, []);
 
   return (

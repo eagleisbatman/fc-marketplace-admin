@@ -3,10 +3,10 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminProvider } from "@/contexts/AdminContext";
 import { Layout } from "@/components/Layout";
+import { CountrySelectorModal } from "@/components/CountrySelectorModal";
 import { Login } from "@/pages/Login";
 import { Dashboard } from "@/pages/Dashboard";
-import { CsvUpload } from "@/pages/CsvUpload";
-import { Templates } from "@/pages/Templates";
+import { Import } from "@/pages/Import";
 import { Users } from "@/pages/Users";
 import { FPOs } from "@/pages/FPOs";
 import { Providers } from "@/pages/Providers";
@@ -38,7 +38,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/" replace />;
   }
 
-  return <Layout>{children}</Layout>;
+  return (
+    <Layout>
+      <CountrySelectorModal />
+      {children}
+    </Layout>
+  );
 }
 
 function AppRoutes() {
@@ -67,21 +72,16 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/dashboard/upload"
+        path="/dashboard/import"
         element={
           <ProtectedRoute>
-            <CsvUpload />
+            <Import />
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/dashboard/templates"
-        element={
-          <ProtectedRoute>
-            <Templates />
-          </ProtectedRoute>
-        }
-      />
+      {/* Redirect old routes to new consolidated import page */}
+      <Route path="/dashboard/upload" element={<Navigate to="/dashboard/import" replace />} />
+      <Route path="/dashboard/templates" element={<Navigate to="/dashboard/import" replace />} />
       <Route
         path="/dashboard/users"
         element={

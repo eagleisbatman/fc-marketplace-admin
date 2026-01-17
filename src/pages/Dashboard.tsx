@@ -4,15 +4,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAdmin } from "@/contexts/AdminContext";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
   Upload,
   Users,
   Building2,
@@ -21,10 +12,7 @@ import {
   Package,
   MapPin,
   Download,
-  Globe,
-  Loader2,
 } from "lucide-react";
-import { useState } from "react";
 
 const dataTypes = [
   { path: "/dashboard/users", label: "Users", icon: Users, description: "Farmers, Partners, Providers, Admins" },
@@ -37,14 +25,7 @@ const dataTypes = [
 
 export function Dashboard() {
   const { user } = useAuth();
-  const {
-    selectedCountry,
-    setSelectedCountry,
-    countries,
-    isLoadingCountries,
-    needsCountrySelection,
-  } = useAdmin();
-  const [tempSelectedCountryId, setTempSelectedCountryId] = useState<string>("");
+  const { selectedCountry } = useAdmin();
 
   const getRoleDescription = () => {
     if (user?.role === "super_admin") {
@@ -58,75 +39,8 @@ export function Dashboard() {
     return "";
   };
 
-  const handleCountrySelect = () => {
-    const country = countries.find((c) => c.id === tempSelectedCountryId);
-    if (country) {
-      setSelectedCountry(country);
-    }
-  };
-
   return (
-    <>
-      {/* Country Selection Modal for Super Admin */}
-      <Dialog open={needsCountrySelection}>
-        <DialogContent className="sm:max-w-md" hideCloseButton>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              Select Country
-            </DialogTitle>
-            <DialogDescription>
-              Choose which country you want to manage. You can switch countries later from the header.
-            </DialogDescription>
-          </DialogHeader>
-
-          {isLoadingCountries ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : countries.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No countries available. Please contact an administrator.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <RadioGroup
-                value={tempSelectedCountryId}
-                onValueChange={setTempSelectedCountryId}
-                className="gap-3"
-              >
-                {countries.map((country) => (
-                  <div key={country.id} className="flex items-center space-x-3">
-                    <RadioGroupItem value={country.id} id={country.id} />
-                    <Label
-                      htmlFor={country.id}
-                      className="flex items-center gap-2 cursor-pointer flex-1 py-2"
-                    >
-                      <span className="text-xl">{country.flag}</span>
-                      <span className="font-medium">{country.name}</span>
-                      {country.nameLocal && (
-                        <span className="text-muted-foreground text-sm">
-                          ({country.nameLocal})
-                        </span>
-                      )}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-
-              <Button
-                onClick={handleCountrySelect}
-                disabled={!tempSelectedCountryId}
-                className="w-full"
-              >
-                Continue
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Data Management</h1>
           <p className="text-muted-foreground">{getRoleDescription()}</p>
@@ -196,6 +110,5 @@ export function Dashboard() {
           </div>
         </div>
       </div>
-    </>
   );
 }

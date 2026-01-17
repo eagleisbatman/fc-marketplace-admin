@@ -14,6 +14,7 @@ import {
 import { Store, Search, Package, Loader2, AlertCircle } from "lucide-react";
 import { getServiceProviders } from "@/lib/api";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAdmin } from "@/contexts/AdminContext";
 
 type ServiceProvider = {
   id: string;
@@ -27,6 +28,7 @@ type ServiceProvider = {
 };
 
 export function Providers() {
+  const { selectedCountry } = useAdmin();
   const [search, setSearch] = useState("");
   const [providers, setProviders] = useState<ServiceProvider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,13 +36,16 @@ export function Providers() {
 
   useEffect(() => {
     loadProviders();
-  }, []);
+  }, [selectedCountry]);
 
   const loadProviders = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await getServiceProviders({ limit: 100 }) as { success: boolean; data?: { providers: ServiceProvider[] } };
+      const response = await getServiceProviders({
+        limit: 100,
+        countryCode: selectedCountry?.code || undefined,
+      }) as { success: boolean; data?: { providers: ServiceProvider[] } };
       if (response.success && response.data) {
         setProviders(response.data.providers || []);
       }

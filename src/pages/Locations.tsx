@@ -16,11 +16,18 @@ import {
   MapPin
 } from "lucide-react";
 import { getLocationSyncStatus, type LocationSyncStatus } from "@/lib/api";
+import { useAdmin } from "@/contexts/AdminContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function Locations() {
   const [status, setStatus] = useState<LocationSyncStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { selectedCountry } = useAdmin();
+  const { user } = useAuth();
+
+  // For super_admin without country selected, show warning
+  const showCountryWarning = user?.role === "super_admin" && !selectedCountry;
 
   const fetchStatus = async () => {
     try {
@@ -37,7 +44,7 @@ export function Locations() {
 
   useEffect(() => {
     fetchStatus();
-  }, []);
+  }, [selectedCountry]);
 
   const formatNumber = (num: number) => num.toLocaleString();
 
@@ -47,14 +54,34 @@ export function Locations() {
         <div>
           <h1 className="text-3xl font-bold">Locations</h1>
           <p className="text-muted-foreground">
-            India location hierarchy (States → Districts → Blocks → Villages)
+            {selectedCountry
+              ? `${selectedCountry.name} location hierarchy (States → Districts → Blocks → Villages)`
+              : "Location hierarchy (States → Districts → Blocks → Villages)"}
           </p>
+          {selectedCountry && (
+            <div className="mt-2 flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Viewing:</span>
+              <Badge variant="outline" className="text-sm">
+                {selectedCountry.flag} {selectedCountry.name}
+              </Badge>
+            </div>
+          )}
         </div>
         <Button variant="outline" onClick={fetchStatus} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
+
+      {showCountryWarning && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Country Not Selected</AlertTitle>
+          <AlertDescription>
+            Please select a country from the header to view location data for a specific region.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {error && (
         <Alert variant="destructive">
@@ -72,7 +99,11 @@ export function Locations() {
             Location Data
           </CardTitle>
           <CardDescription>
-            Pre-loaded from India's Local Government Directory (LGD)
+            {selectedCountry?.code === "IN"
+              ? "Pre-loaded from India's Local Government Directory (LGD)"
+              : selectedCountry
+                ? `Location data for ${selectedCountry.name}`
+                : "Pre-loaded location hierarchy data"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -176,24 +207,36 @@ export function Locations() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="text-sm space-y-2">
-            <p>
-              Location data is pre-loaded from India's <strong>Local Government Directory (LGD)</strong>,
-              the official source for administrative division codes.
-            </p>
-            <p className="text-muted-foreground">
-              The data includes:
-            </p>
-            <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-2">
-              <li>All 28 states and 8 union territories</li>
-              <li>765 districts with official LGD codes</li>
-              <li>7,226 blocks/sub-districts</li>
-              <li>642,419 villages across India</li>
-            </ul>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Source: Local Government Directory (lgdirectory.gov.in)
-          </p>
+          {selectedCountry?.code === "IN" ? (
+            <div className="text-sm space-y-2">
+              <p>
+                Location data is pre-loaded from India's <strong>Local Government Directory (LGD)</strong>,
+                the official source for administrative division codes.
+              </p>
+              <p className="text-muted-foreground">
+                The data includes:
+              </p>
+              <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-2">
+                <li>All 28 states and 8 union territories</li>
+                <li>765 districts with official LGD codes</li>
+                <li>7,226 blocks/sub-districts</li>
+                <li>642,419 villages across India</li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-4">
+                Source: Local Government Directory (lgdirectory.gov.in)
+              </p>
+            </div>
+          ) : (
+            <div className="text-sm space-y-2">
+              <p>
+                Location data is pre-loaded from official government sources for each country.
+              </p>
+              <p className="text-muted-foreground">
+                The hierarchy includes states/provinces, districts, blocks/sub-districts, and villages
+                based on each country's administrative structure.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
