@@ -26,9 +26,10 @@ type ProductTableProps = {
   onDelete: (product: Product) => void;
 };
 
-function formatPrice(price: number, currency?: Currency): string {
+function formatPrice(price: number | null | undefined, currency?: Currency): string {
   const symbol = currency?.symbol || "₹";
-  return `${symbol}${price.toFixed(2)}`;
+  const numPrice = typeof price === 'number' ? price : 0;
+  return `${symbol}${numPrice.toFixed(2)}`;
 }
 
 function getStockBadgeVariant(
