@@ -70,6 +70,7 @@ import {
   addFPOMember,
   removeFPOMember,
   getUsers,
+  importUsers,
   type FpoStaff,
   type FpoDocument,
   type CoverageArea,
@@ -77,6 +78,7 @@ import {
 import type { FPO, FPOMember } from "@/types/fpo.types";
 import { toast } from "sonner";
 import { CoverageSelector, type CoverageValue } from "@/components/CoverageSelector";
+import { parseCSV, parseExcel, downloadTemplateExcel } from "@/components/import/importHelpers";
 
 // Staff role options
 const STAFF_ROLES = [
@@ -125,6 +127,14 @@ export function FPODetail() {
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [uploadDocOpen, setUploadDocOpen] = useState(false);
   const [addCoverageOpen, setAddCoverageOpen] = useState(false);
+  const [uploadFarmersOpen, setUploadFarmersOpen] = useState(false);
+
+  // Upload farmers state
+  const [uploadFileName, setUploadFileName] = useState("");
+  const [uploadData, setUploadData] = useState<Record<string, string>[]>([]);
+  const [uploadPreview, setUploadPreview] = useState<Record<string, string>[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<{ imported: number; failed: number; errors: string[] } | null>(null);
 
   // Form states
   const [staffForm, setStaffForm] = useState({ userId: "", staffRole: "", userSearch: "" });
@@ -383,6 +393,90 @@ export function FPODetail() {
     } catch {
       toast.error("Failed to remove coverage");
     }
+  };
+
+  // Farmer upload handlers
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadFileName(file.name);
+    setUploadResult(null);
+
+    try {
+      const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+      let rows: Record<string, string>[];
+
+      if (isExcel) {
+        const buffer = await file.arrayBuffer();
+        rows = parseExcel(buffer);
+      } else {
+        const text = await file.text();
+        rows = parseCSV(text);
+      }
+
+      if (rows.length === 0) {
+        toast.error("File appears to be empty");
+        setUploadFileName("");
+        return;
+      }
+
+      if (rows.length > 1000) {
+        toast.error("Maximum 1000 rows per upload");
+        setUploadFileName("");
+        return;
+      }
+
+      setUploadData(rows);
+      setUploadPreview(rows.slice(0, 5));
+    } catch {
+      toast.error("Failed to parse file");
+      setUploadFileName("");
+    }
+
+    event.target.value = "";
+  };
+
+  const handleUploadFarmers = async () => {
+    if (uploadData.length === 0) return;
+
+    setUploading(true);
+    try {
+      const result = await importUsers(uploadData, "farmer", id!) as {
+        success: boolean;
+        imported: number;
+        failed: number;
+        errors: string[];
+      };
+      setUploadResult({ imported: result.imported, failed: result.failed, errors: result.errors });
+      if (result.imported > 0) {
+        toast.success(`Imported ${result.imported} farmers`);
+        loadMembers();
+      }
+      if (result.failed > 0) {
+        toast.warning(`${result.failed} rows failed`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCloseUploadDialog = () => {
+    setUploadFarmersOpen(false);
+    setUploadFileName("");
+    setUploadData([]);
+    setUploadPreview([]);
+    setUploadResult(null);
+  };
+
+  const handleDownloadTemplate = () => {
+    downloadTemplateExcel(
+      ["name", "nameLocal", "phone", "email", "fatherName", "village", "block", "district", "state"],
+      "farmers_template",
+      "Farmers"
+    );
   };
 
   const formatLocation = (fpo: FPO): string => {
@@ -659,6 +753,10 @@ export function FPODetail() {
                   <CardDescription>Official registered members of this FPO</CardDescription>
                 </div>
                 <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setUploadFarmersOpen(true)}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload Farmers
+                  </Button>
                   <Button size="sm" onClick={() => setAddMemberOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" />
                     Add Member
@@ -1089,6 +1187,111 @@ export function FPODetail() {
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Add Member
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload Farmers Dialog */}
+      <Dialog open={uploadFarmersOpen} onOpenChange={handleCloseUploadDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Upload Farmers</DialogTitle>
+            <DialogDescription>
+              Bulk upload farmers from a CSV or Excel file. They will be added as members of this FPO.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Download Template */}
+            <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+              <div className="text-sm">
+                <div className="font-medium">Need a template?</div>
+                <div className="text-muted-foreground">Download the Excel template with required columns</div>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+                Download Template
+              </Button>
+            </div>
+
+            {/* File Input */}
+            <div className="space-y-2">
+              <Label>Select File</Label>
+              <Input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={handleFileSelect}
+              />
+              <p className="text-xs text-muted-foreground">
+                Supports .csv, .xlsx, and .xls files (max 1000 rows)
+              </p>
+            </div>
+
+            {/* Preview */}
+            {uploadFileName && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Preview: {uploadFileName}</Label>
+                  <Badge variant="secondary">{uploadData.length} rows</Badge>
+                </div>
+                {uploadPreview.length > 0 && (
+                  <div className="border rounded-lg overflow-auto max-h-48">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {Object.keys(uploadPreview[0]).map((col) => (
+                            <TableHead key={col} className="text-xs whitespace-nowrap">
+                              {col}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {uploadPreview.map((row, i) => (
+                          <TableRow key={i}>
+                            {Object.values(row).map((val, j) => (
+                              <TableCell key={j} className="text-xs py-1">
+                                {val || "—"}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Upload Result */}
+            {uploadResult && (
+              <Alert variant={uploadResult.failed > 0 ? "destructive" : "default"}>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <div>Imported: {uploadResult.imported}, Failed: {uploadResult.failed}</div>
+                  {uploadResult.errors.length > 0 && (
+                    <ul className="mt-2 text-xs list-disc list-inside max-h-24 overflow-auto">
+                      {uploadResult.errors.slice(0, 10).map((err, i) => (
+                        <li key={i}>{err}</li>
+                      ))}
+                      {uploadResult.errors.length > 10 && (
+                        <li>...and {uploadResult.errors.length - 10} more errors</li>
+                      )}
+                    </ul>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseUploadDialog}>
+              {uploadResult ? "Close" : "Cancel"}
+            </Button>
+            {!uploadResult && (
+              <Button onClick={handleUploadFarmers} disabled={uploading || uploadData.length === 0}>
+                {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Upload className="mr-2 h-4 w-4" />
+                Upload {uploadData.length > 0 ? `${uploadData.length} Farmers` : ""}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
