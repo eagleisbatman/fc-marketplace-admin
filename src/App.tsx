@@ -9,6 +9,7 @@ import { Dashboard } from "@/pages/Dashboard";
 import { Import } from "@/pages/Import";
 import { Users } from "@/pages/Users";
 import { FPOs } from "@/pages/FPOs";
+import { FPODetail } from "@/pages/FPODetail";
 import { Farmers } from "@/pages/Farmers";
 import { Providers } from "@/pages/Providers";
 import { Brands } from "@/pages/Brands";
@@ -96,6 +97,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <FPOs />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/fpos/:id"
+        element={
+          <ProtectedRoute>
+            <FPODetail />
           </ProtectedRoute>
         }
       />
