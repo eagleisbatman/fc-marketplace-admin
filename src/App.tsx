@@ -13,6 +13,7 @@ import { FPODetail } from "@/pages/FPODetail";
 import { Farmers } from "@/pages/Farmers";
 import { IndependentFarmers } from "@/pages/IndependentFarmers";
 import { Providers } from "@/pages/Providers";
+import { ProviderDetail } from "@/pages/ProviderDetail";
 import { Brands } from "@/pages/Brands";
 import { Products } from "@/pages/Products";
 import { Locations } from "@/pages/Locations";
@@ -130,6 +131,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Providers />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/providers/:id"
+        element={
+          <ProtectedRoute>
+            <ProviderDetail />
           </ProtectedRoute>
         }
       />

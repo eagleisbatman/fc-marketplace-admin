@@ -72,6 +72,7 @@ import {
   getUsers,
   importUsers,
   updateFPO,
+  createUser,
   type FpoStaff,
   type FpoDocument,
   type CoverageArea,
@@ -155,6 +156,16 @@ export function FPODetail() {
   // User search results
   const [userSearchResults, setUserSearchResults] = useState<Array<{ id: string; name: string; phone?: string; type?: string }>>([]);
   const [userSearchLoading, setUserSearchLoading] = useState(false);
+
+  // Create user mode for staff dialog
+  const [staffCreateMode, setStaffCreateMode] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState({
+    name: "",
+    nameLocal: "",
+    phone: "",
+    email: "",
+  });
+  const [creatingUser, setCreatingUser] = useState(false);
 
   // Saving states
   const [saving, setSaving] = useState(false);
@@ -289,11 +300,51 @@ export function FPODetail() {
       setAddStaffOpen(false);
       setStaffForm({ userId: "", staffRole: "", userSearch: "" });
       setUserSearchResults([]);
+      setStaffCreateMode(false);
+      setCreateUserForm({ name: "", nameLocal: "", phone: "", email: "" });
       loadStaff();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add staff");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateUserForStaff = async () => {
+    if (!createUserForm.name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    if (!staffForm.staffRole) {
+      toast.error("Please select a role first");
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      const response = await createUser({
+        name: createUserForm.name.trim(),
+        nameLocal: createUserForm.nameLocal.trim() || undefined,
+        phone: createUserForm.phone.trim() || undefined,
+        email: createUserForm.email.trim() || undefined,
+        type: "partner", // Staff members are partners
+      }) as { success: boolean; data?: { id: string; name: string } };
+
+      if (response.success && response.data) {
+        // Automatically add the new user as staff
+        await addFpoStaff(id!, { userId: response.data.id, staffRole: staffForm.staffRole });
+        toast.success(`Created user "${response.data.name}" and added as ${staffForm.staffRole}`);
+        setAddStaffOpen(false);
+        setStaffForm({ userId: "", staffRole: "", userSearch: "" });
+        setStaffCreateMode(false);
+        setCreateUserForm({ name: "", nameLocal: "", phone: "", email: "" });
+        setUserSearchResults([]);
+        loadStaff();
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create user");
+    } finally {
+      setCreatingUser(false);
     }
   };
 
@@ -1097,12 +1148,18 @@ export function FPODetail() {
       </Tabs>
 
       {/* Add Staff Dialog */}
-      <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
+      <Dialog open={addStaffOpen} onOpenChange={(open) => {
+        setAddStaffOpen(open);
+        if (!open) {
+          setStaffCreateMode(false);
+          setCreateUserForm({ name: "", nameLocal: "", phone: "", email: "" });
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Staff Member</DialogTitle>
             <DialogDescription>
-              Assign a staff role to this FPO
+              {staffCreateMode ? "Create a new user and assign as staff" : "Assign a staff role to this FPO"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1125,53 +1182,132 @@ export function FPODetail() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Person *</Label>
-              <Input
-                placeholder="Search by name or phone..."
-                value={staffForm.userSearch}
-                onChange={(e) => {
-                  setStaffForm({ ...staffForm, userSearch: e.target.value });
-                  searchUsersDebounced(e.target.value);
-                }}
-              />
-              {userSearchLoading && (
-                <div className="text-sm text-muted-foreground">Searching...</div>
-              )}
-              {userSearchResults.length > 0 && (
-                <div className="border rounded-md max-h-40 overflow-auto">
-                  {userSearchResults.map((user) => (
-                    <div
-                      key={user.id}
-                      className={`p-2 cursor-pointer hover:bg-muted ${
-                        staffForm.userId === user.id ? "bg-muted" : ""
-                      }`}
-                      onClick={() =>
-                        setStaffForm({
-                          ...staffForm,
-                          userId: user.id,
-                          userSearch: user.name,
-                        })
-                      }
+
+            {!staffCreateMode ? (
+              <>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Person *</Label>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-primary"
+                      onClick={() => setStaffCreateMode(true)}
                     >
-                      <div className="font-medium">{user.name}</div>
-                      {user.phone && (
-                        <div className="text-sm text-muted-foreground">{user.phone}</div>
-                      )}
+                      <Plus className="mr-1 h-3 w-3" />
+                      Create New User
+                    </Button>
+                  </div>
+                  <Input
+                    placeholder="Search by name or phone..."
+                    value={staffForm.userSearch}
+                    onChange={(e) => {
+                      setStaffForm({ ...staffForm, userSearch: e.target.value });
+                      searchUsersDebounced(e.target.value);
+                    }}
+                  />
+                  {userSearchLoading && (
+                    <div className="text-sm text-muted-foreground">Searching...</div>
+                  )}
+                  {userSearchResults.length > 0 && (
+                    <div className="border rounded-md max-h-40 overflow-auto">
+                      {userSearchResults.map((user) => (
+                        <div
+                          key={user.id}
+                          className={`p-2 cursor-pointer hover:bg-muted ${
+                            staffForm.userId === user.id ? "bg-muted" : ""
+                          }`}
+                          onClick={() =>
+                            setStaffForm({
+                              ...staffForm,
+                              userId: user.id,
+                              userSearch: user.name,
+                            })
+                          }
+                        >
+                          <div className="font-medium">{user.name}</div>
+                          {user.phone && (
+                            <div className="text-sm text-muted-foreground">{user.phone}</div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <>
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <Label className="text-base font-medium">Create New User</Label>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() => setStaffCreateMode(false)}
+                    >
+                      <Search className="mr-1 h-3 w-3" />
+                      Search Existing
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label>Name *</Label>
+                      <Input
+                        placeholder="Full name"
+                        value={createUserForm.name}
+                        onChange={(e) => setCreateUserForm({ ...createUserForm, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Local Name</Label>
+                      <Input
+                        placeholder="Name in local language"
+                        value={createUserForm.nameLocal}
+                        onChange={(e) => setCreateUserForm({ ...createUserForm, nameLocal: e.target.value })}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>Phone</Label>
+                        <Input
+                          placeholder="Phone number"
+                          value={createUserForm.phone}
+                          onChange={(e) => setCreateUserForm({ ...createUserForm, phone: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Email</Label>
+                        <Input
+                          type="email"
+                          placeholder="Email address"
+                          value={createUserForm.email}
+                          onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddStaffOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddStaff} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Add Staff
-            </Button>
+            {staffCreateMode ? (
+              <Button onClick={handleCreateUserForStaff} disabled={creatingUser}>
+                {creatingUser && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create & Add Staff
+              </Button>
+            ) : (
+              <Button onClick={handleAddStaff} disabled={saving}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Add Staff
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

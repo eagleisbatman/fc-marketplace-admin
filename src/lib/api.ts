@@ -304,12 +304,58 @@ export async function updateFPOMemberRole(fpoId: string, userId: string, role: s
   });
 }
 
-export async function getServiceProviders(params?: { page?: number; limit?: number; countryCode?: string }) {
+export async function getServiceProviders(params?: { page?: number; limit?: number; countryCode?: string; search?: string }) {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   if (params?.countryCode) query.set("countryCode", params.countryCode);
+  if (params?.search) query.set("search", params.search);
   return apiFetch(`/admin/service-providers?${query}`);
+}
+
+export async function getServiceProvider(id: string) {
+  return apiFetch(`/admin/service-providers/${id}`);
+}
+
+export async function createServiceProvider(data: {
+  name: string;
+  nameLocal?: string;
+  logoUrl?: string;
+  phone?: string;
+  whatsapp?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  stateId?: string;
+  districtId?: string;
+}) {
+  return apiFetch("/admin/service-providers", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateServiceProvider(id: string, data: {
+  name?: string;
+  nameLocal?: string;
+  logoUrl?: string;
+  phone?: string;
+  whatsapp?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  stateId?: string;
+  districtId?: string;
+  isActive?: boolean;
+}) {
+  return apiFetch(`/admin/service-providers/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteServiceProvider(id: string) {
+  return apiFetch(`/admin/service-providers/${id}`, { method: "DELETE" });
 }
 
 // Location data (for dropdowns)
