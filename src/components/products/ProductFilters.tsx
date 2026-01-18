@@ -90,15 +90,15 @@ export function ProductFilters({
           <div className="flex-1">
             <Label className="text-xs text-muted-foreground">Category</Label>
             <Select
-              value={filters.categoryId}
-              onValueChange={(val) => onFiltersChange({ categoryId: val })}
+              value={filters.categoryId || "__all__"}
+              onValueChange={(val) => onFiltersChange({ categoryId: val === "__all__" ? "" : val })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="All categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All categories</SelectItem>
-                {categories.map((cat) => (
+                <SelectItem value="__all__">All categories</SelectItem>
+                {categories.filter((c) => c.id).map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
                     {cat.name}
                   </SelectItem>
@@ -109,15 +109,15 @@ export function ProductFilters({
           <div className="flex-1">
             <Label className="text-xs text-muted-foreground">Brand</Label>
             <Select
-              value={filters.brandId}
-              onValueChange={(val) => onFiltersChange({ brandId: val })}
+              value={filters.brandId || "__all__"}
+              onValueChange={(val) => onFiltersChange({ brandId: val === "__all__" ? "" : val })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="All brands" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All brands</SelectItem>
-                {brands.map((brand) => (
+                <SelectItem value="__all__">All brands</SelectItem>
+                {brands.filter((b) => b.id).map((brand) => (
                   <SelectItem key={brand.id} value={brand.id}>
                     {brand.name}
                   </SelectItem>
@@ -128,15 +128,15 @@ export function ProductFilters({
           <div className="flex-1">
             <Label className="text-xs text-muted-foreground">Provider</Label>
             <Select
-              value={filters.providerId}
-              onValueChange={(val) => onFiltersChange({ providerId: val })}
+              value={filters.providerId || "__all__"}
+              onValueChange={(val) => onFiltersChange({ providerId: val === "__all__" ? "" : val })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="All providers" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All providers</SelectItem>
-                {providers.map((prov) => (
+                <SelectItem value="__all__">All providers</SelectItem>
+                {providers.filter((p) => p.id).map((prov) => (
                   <SelectItem key={prov.id} value={prov.id}>
                     {prov.name}
                   </SelectItem>

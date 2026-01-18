@@ -292,7 +292,7 @@ export function LocationSelector({
               )}
             </SelectTrigger>
             <SelectContent>
-              {countries.map((country) => (
+              {countries.filter((c) => c.id && c.code).map((country) => (
                 <SelectItem key={country.id} value={country.code}>
                   {country.name}
                 </SelectItem>
@@ -317,7 +317,7 @@ export function LocationSelector({
             )}
           </SelectTrigger>
           <SelectContent>
-            {states.map((state) => (
+            {states.filter((s) => s.id && s.code).map((state) => (
               <SelectItem key={state.id} value={state.code}>
                 {state.name}
               </SelectItem>
@@ -363,7 +363,7 @@ export function LocationSelector({
                 {districtSearch ? "No districts found" : "No districts available"}
               </div>
             ) : (
-              displayDistricts.map((district) => (
+              displayDistricts.filter((d) => d.id).map((district) => (
                 <SelectItem key={district.id} value={district.id}>
                   {district.name}
                 </SelectItem>
@@ -415,7 +415,7 @@ export function LocationSelector({
                 {blockSearch ? "No blocks found" : "No blocks available"}
               </div>
             ) : (
-              displayBlocks.map((block) => (
+              displayBlocks.filter((b) => b.id).map((block) => (
                 <SelectItem key={block.id} value={block.id}>
                   {block.name}
                 </SelectItem>
@@ -467,7 +467,7 @@ export function LocationSelector({
                 {villageSearch ? "No villages found" : "No villages available"}
               </div>
             ) : (
-              displayVillages.map((village) => (
+              displayVillages.filter((v) => v.id).map((village) => (
                 <SelectItem key={village.id} value={village.id}>
                   {village.name}
                 </SelectItem>

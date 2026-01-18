@@ -122,7 +122,7 @@ export function ProductForm({
               <SelectValue placeholder="Select category" />
             </SelectTrigger>
             <SelectContent>
-              {categories.map((cat) => (
+              {categories.filter((c) => c.id).map((cat) => (
                 <SelectItem key={cat.id} value={cat.id}>
                   {cat.name}
                 </SelectItem>
@@ -133,15 +133,15 @@ export function ProductForm({
         <div className="space-y-2">
           <Label htmlFor="brandId">Brand</Label>
           <Select
-            value={formData.brandId}
-            onValueChange={(val) => onFormChange({ ...formData, brandId: val })}
+            value={formData.brandId || "__none__"}
+            onValueChange={(val) => onFormChange({ ...formData, brandId: val === "__none__" ? "" : val })}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select brand (optional)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No brand</SelectItem>
-              {brands.map((brand) => (
+              <SelectItem value="__none__">No brand</SelectItem>
+              {brands.filter((b) => b.id).map((brand) => (
                 <SelectItem key={brand.id} value={brand.id}>
                   {brand.name}
                 </SelectItem>
@@ -164,7 +164,7 @@ export function ProductForm({
               <SelectValue placeholder="Select provider" />
             </SelectTrigger>
             <SelectContent>
-              {providers.map((prov) => (
+              {providers.filter((p) => p.id).map((prov) => (
                 <SelectItem key={prov.id} value={prov.id}>
                   {prov.name}
                 </SelectItem>
@@ -196,7 +196,7 @@ export function ProductForm({
               <SelectValue placeholder="Select unit" />
             </SelectTrigger>
             <SelectContent>
-              {units.map((unit) => (
+              {units.filter((u) => u.id).map((unit) => (
                 <SelectItem key={unit.id} value={unit.id}>
                   {unit.name} ({unit.code})
                 </SelectItem>
@@ -227,7 +227,7 @@ export function ProductForm({
               <SelectValue placeholder="Select currency" />
             </SelectTrigger>
             <SelectContent>
-              {currencies.map((curr) => (
+              {currencies.filter((c) => c.id).map((curr) => (
                 <SelectItem key={curr.id} value={curr.id}>
                   {curr.code} ({curr.symbol})
                 </SelectItem>
