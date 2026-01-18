@@ -53,10 +53,30 @@ import {
   Mail,
   Upload,
   X,
+  ExternalLink,
 } from "lucide-react";
-import { getFPO, getFPOMembers } from "@/lib/api";
+import {
+  getFPO,
+  getFPOMembers,
+  getFpoStaff,
+  addFpoStaff,
+  removeFpoStaff,
+  getFpoDocuments,
+  addFpoDocument,
+  deleteFpoDocument,
+  getFpoCoverage,
+  addFpoCoverage,
+  deleteFpoCoverage,
+  addFPOMember,
+  removeFPOMember,
+  getUsers,
+  type FpoStaff,
+  type FpoDocument,
+  type CoverageArea,
+} from "@/lib/api";
 import type { FPO, FPOMember } from "@/types/fpo.types";
 import { toast } from "sonner";
+import { CoverageSelector, type CoverageValue } from "@/components/CoverageSelector";
 
 // Staff role options
 const STAFF_ROLES = [
@@ -68,30 +88,12 @@ const STAFF_ROLES = [
 
 // Document type options
 const DOCUMENT_TYPES = [
-  { value: "registration", label: "Registration Certificate" },
+  { value: "registration_certificate", label: "Registration Certificate" },
   { value: "annual_report", label: "Annual Report" },
   { value: "audit_report", label: "Audit Report" },
-  { value: "license", label: "License" },
+  { value: "member_list", label: "Member List" },
   { value: "other", label: "Other" },
 ];
-
-type FPOStaff = {
-  id: string;
-  staffRole: string;
-  user: {
-    id: string;
-    name: string;
-    phone?: string;
-  };
-};
-
-type FPODocument = {
-  id: string;
-  name: string;
-  type: string;
-  fileUrl: string;
-  createdAt: string;
-};
 
 export function FPODetail() {
   const { id } = useParams<{ id: string }>();
@@ -101,16 +103,18 @@ export function FPODetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Tab data (setStaff and setDocuments will be used when API is connected)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [staff, _setStaff] = useState<FPOStaff[]>([]);
+  // Tab data
+  const [staff, setStaff] = useState<FpoStaff[]>([]);
   const [members, setMembers] = useState<FPOMember[]>([]);
   const [associated, setAssociated] = useState<FPOMember[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [documents, _setDocuments] = useState<FPODocument[]>([]);
+  const [documents, setDocuments] = useState<FpoDocument[]>([]);
+  const [coverage, setCoverage] = useState<CoverageArea[]>([]);
 
   // Loading states
+  const [staffLoading, setStaffLoading] = useState(false);
   const [membersLoading, setMembersLoading] = useState(false);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [coverageLoading, setCoverageLoading] = useState(false);
 
   // Search states
   const [memberSearch, setMemberSearch] = useState("");
@@ -120,11 +124,28 @@ export function FPODetail() {
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [uploadDocOpen, setUploadDocOpen] = useState(false);
+  const [addCoverageOpen, setAddCoverageOpen] = useState(false);
+
+  // Form states
+  const [staffForm, setStaffForm] = useState({ userId: "", staffRole: "", userSearch: "" });
+  const [memberForm, setMemberForm] = useState({ userId: "", userSearch: "", membershipType: "member" as "member" | "associated" });
+  const [docForm, setDocForm] = useState({ name: "", type: "registration_certificate", description: "", fileUrl: "" });
+  const [coverageForm, setCoverageForm] = useState<CoverageValue>({});
+
+  // User search results
+  const [userSearchResults, setUserSearchResults] = useState<Array<{ id: string; name: string; phone?: string; type?: string }>>([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+
+  // Saving states
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (id) {
       loadFPO();
+      loadStaff();
       loadMembers();
+      loadDocuments();
+      loadCoverage();
     }
   }, [id]);
 
@@ -148,6 +169,20 @@ export function FPODetail() {
     }
   };
 
+  const loadStaff = async () => {
+    try {
+      setStaffLoading(true);
+      const response = await getFpoStaff(id!);
+      if (response.success && response.data) {
+        setStaff(response.data.staff);
+      }
+    } catch (err) {
+      console.error("Failed to load staff:", err);
+    } finally {
+      setStaffLoading(false);
+    }
+  };
+
   const loadMembers = async () => {
     try {
       setMembersLoading(true);
@@ -156,10 +191,9 @@ export function FPODetail() {
         data?: { members: FPOMember[] };
       };
       if (response.success && response.data) {
-        // Separate members and associated based on membershipType
         const allMembers = response.data.members;
-        setMembers(allMembers.filter((m) => (m as any).membershipType !== "associated"));
-        setAssociated(allMembers.filter((m) => (m as any).membershipType === "associated"));
+        setMembers(allMembers.filter((m: FPOMember & { membershipType?: string }) => m.membershipType !== "associated"));
+        setAssociated(allMembers.filter((m: FPOMember & { membershipType?: string }) => m.membershipType === "associated"));
       }
     } catch (err) {
       console.error("Failed to load members:", err);
@@ -168,9 +202,200 @@ export function FPODetail() {
     }
   };
 
+  const loadDocuments = async () => {
+    try {
+      setDocumentsLoading(true);
+      const response = await getFpoDocuments(id!);
+      if (response.success && response.data) {
+        setDocuments(response.data);
+      }
+    } catch (err) {
+      console.error("Failed to load documents:", err);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
+  const loadCoverage = async () => {
+    try {
+      setCoverageLoading(true);
+      const response = await getFpoCoverage(id!);
+      if (response.success && response.data) {
+        setCoverage(response.data.coverage);
+      }
+    } catch (err) {
+      console.error("Failed to load coverage:", err);
+    } finally {
+      setCoverageLoading(false);
+    }
+  };
+
+  const searchUsersDebounced = async (search: string) => {
+    if (search.length < 2) {
+      setUserSearchResults([]);
+      return;
+    }
+    setUserSearchLoading(true);
+    try {
+      const response = await getUsers({ limit: 10 }) as {
+        success: boolean;
+        data?: { users: Array<{ id: string; name: string; phone?: string; type: string }> };
+      };
+      if (response.success && response.data) {
+        // Filter by search term on client side since backend doesn't have search
+        const filtered = response.data.users.filter(
+          (u) =>
+            u.name.toLowerCase().includes(search.toLowerCase()) ||
+            u.phone?.includes(search)
+        );
+        setUserSearchResults(filtered.slice(0, 10));
+      }
+    } catch (err) {
+      console.error("Failed to search users:", err);
+    } finally {
+      setUserSearchLoading(false);
+    }
+  };
+
+  const handleAddStaff = async () => {
+    if (!staffForm.userId || !staffForm.staffRole) {
+      toast.error("Please select a user and role");
+      return;
+    }
+    setSaving(true);
+    try {
+      await addFpoStaff(id!, { userId: staffForm.userId, staffRole: staffForm.staffRole });
+      toast.success("Staff member added");
+      setAddStaffOpen(false);
+      setStaffForm({ userId: "", staffRole: "", userSearch: "" });
+      setUserSearchResults([]);
+      loadStaff();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add staff");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemoveStaff = async (staffId: string) => {
+    try {
+      await removeFpoStaff(id!, staffId);
+      toast.success("Staff member removed");
+      loadStaff();
+    } catch {
+      toast.error("Failed to remove staff");
+    }
+  };
+
+  const handleAddMember = async () => {
+    if (!memberForm.userId) {
+      toast.error("Please select a farmer");
+      return;
+    }
+    setSaving(true);
+    try {
+      await addFPOMember(id!, memberForm.userId, "member");
+      toast.success("Member added");
+      setAddMemberOpen(false);
+      setMemberForm({ userId: "", userSearch: "", membershipType: "member" });
+      setUserSearchResults([]);
+      loadMembers();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add member");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    try {
+      await removeFPOMember(id!, userId);
+      toast.success("Member removed");
+      loadMembers();
+    } catch {
+      toast.error("Failed to remove member");
+    }
+  };
+
+  const handleUploadDocument = async () => {
+    if (!docForm.name || !docForm.type || !docForm.fileUrl) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    setSaving(true);
+    try {
+      await addFpoDocument(id!, {
+        name: docForm.name,
+        type: docForm.type,
+        description: docForm.description || undefined,
+        fileUrl: docForm.fileUrl,
+      });
+      toast.success("Document uploaded");
+      setUploadDocOpen(false);
+      setDocForm({ name: "", type: "registration_certificate", description: "", fileUrl: "" });
+      loadDocuments();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload document");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    try {
+      await deleteFpoDocument(id!, docId);
+      toast.success("Document deleted");
+      loadDocuments();
+    } catch {
+      toast.error("Failed to delete document");
+    }
+  };
+
+  const handleAddCoverage = async () => {
+    if (!coverageForm.stateId) {
+      toast.error("Please select at least a state");
+      return;
+    }
+    setSaving(true);
+    try {
+      await addFpoCoverage(id!, {
+        stateId: coverageForm.stateId,
+        districtId: coverageForm.districtId || undefined,
+        blockId: coverageForm.blockId || undefined,
+        villageId: coverageForm.villageId || undefined,
+      });
+      toast.success("Coverage area added");
+      setAddCoverageOpen(false);
+      setCoverageForm({});
+      loadCoverage();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add coverage");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteCoverage = async (coverageId: string) => {
+    try {
+      await deleteFpoCoverage(id!, coverageId);
+      toast.success("Coverage area removed");
+      loadCoverage();
+    } catch {
+      toast.error("Failed to remove coverage");
+    }
+  };
+
   const formatLocation = (fpo: FPO): string => {
     if (!fpo.village) return "No location set";
     return `${fpo.village.name}, ${fpo.village.block.name}, ${fpo.village.block.district.name}, ${fpo.village.block.district.state.name}`;
+  };
+
+  const formatCoverage = (cov: CoverageArea): string => {
+    const parts = [cov.state.name];
+    if (cov.district) parts.push(cov.district.name);
+    if (cov.block) parts.push(cov.block.name);
+    if (cov.village) parts.push(cov.village.name);
+    return parts.join(" > ");
   };
 
   const filteredMembers = memberSearch
@@ -349,7 +574,11 @@ export function FPODetail() {
               </div>
             </CardHeader>
             <CardContent>
-              {staff.length === 0 ? (
+              {staffLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : staff.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <UserCog className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No staff assigned yet</p>
@@ -376,10 +605,12 @@ export function FPODetail() {
                         <TableCell className="font-medium">{s.user.name}</TableCell>
                         <TableCell>{s.user.phone || "—"}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-destructive">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive"
+                            onClick={() => handleRemoveStaff(s.id)}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -389,13 +620,21 @@ export function FPODetail() {
                 </Table>
               )}
 
-              {/* Placeholder for unassigned roles */}
+              {/* Quick assign buttons for unassigned roles */}
               <div className="mt-4 pt-4 border-t">
                 <p className="text-sm text-muted-foreground mb-2">Quick assign:</p>
                 <div className="flex flex-wrap gap-2">
                   {STAFF_ROLES.filter((r) => !staff.some((s) => s.staffRole === r.value)).map(
                     (role) => (
-                      <Button key={role.value} variant="outline" size="sm">
+                      <Button
+                        key={role.value}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setStaffForm({ ...staffForm, staffRole: role.value });
+                          setAddStaffOpen(true);
+                        }}
+                      >
                         <Plus className="mr-1 h-3 w-3" />
                         Add {role.label}
                       </Button>
@@ -420,10 +659,6 @@ export function FPODetail() {
                   <CardDescription>Official registered members of this FPO</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload Excel
-                  </Button>
                   <Button size="sm" onClick={() => setAddMemberOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" />
                     Add Member
@@ -485,7 +720,12 @@ export function FPODetail() {
                         </TableCell>
                         <TableCell>{new Date(m.joinedAt).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="text-destructive">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive"
+                            onClick={() => handleRemoveMember(m.user.id)}
+                          >
                             <X className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -591,7 +831,11 @@ export function FPODetail() {
               </div>
             </CardHeader>
             <CardContent>
-              {documents.length === 0 ? (
+              {documentsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : documents.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No documents uploaded yet</p>
@@ -620,10 +864,19 @@ export function FPODetail() {
                         </TableCell>
                         <TableCell>{new Date(doc.createdAt).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon">
-                            <FileText className="h-4 w-4" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => window.open(doc.fileUrl, "_blank")}
+                          >
+                            <ExternalLink className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="text-destructive">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive"
+                            onClick={() => handleDeleteDocument(doc.id)}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -644,26 +897,54 @@ export function FPODetail() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
-                    Coverage Areas
+                    Coverage Areas ({coverage.length})
                   </CardTitle>
                   <CardDescription>
                     Regions where this FPO operates and can serve farmers
                   </CardDescription>
                 </div>
-                <Button size="sm">
+                <Button size="sm" onClick={() => setAddCoverageOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add Coverage
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No coverage areas defined yet</p>
-                <p className="text-sm">
-                  Add states, districts, or blocks where this FPO operates
-                </p>
-              </div>
+              {coverageLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : coverage.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No coverage areas defined yet</p>
+                  <p className="text-sm">
+                    Add states, districts, or blocks where this FPO operates
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {coverage.map((cov) => (
+                    <div
+                      key={cov.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span>{formatCoverage(cov)}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive"
+                        onClick={() => handleDeleteCoverage(cov.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -681,7 +962,10 @@ export function FPODetail() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Role *</Label>
-              <Select>
+              <Select
+                value={staffForm.staffRole}
+                onValueChange={(v) => setStaffForm({ ...staffForm, staffRole: v })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
@@ -697,14 +981,51 @@ export function FPODetail() {
             </div>
             <div className="space-y-2">
               <Label>Person *</Label>
-              <Input placeholder="Search by name or phone..." />
+              <Input
+                placeholder="Search by name or phone..."
+                value={staffForm.userSearch}
+                onChange={(e) => {
+                  setStaffForm({ ...staffForm, userSearch: e.target.value });
+                  searchUsersDebounced(e.target.value);
+                }}
+              />
+              {userSearchLoading && (
+                <div className="text-sm text-muted-foreground">Searching...</div>
+              )}
+              {userSearchResults.length > 0 && (
+                <div className="border rounded-md max-h-40 overflow-auto">
+                  {userSearchResults.map((user) => (
+                    <div
+                      key={user.id}
+                      className={`p-2 cursor-pointer hover:bg-muted ${
+                        staffForm.userId === user.id ? "bg-muted" : ""
+                      }`}
+                      onClick={() =>
+                        setStaffForm({
+                          ...staffForm,
+                          userId: user.id,
+                          userSearch: user.name,
+                        })
+                      }
+                    >
+                      <div className="font-medium">{user.name}</div>
+                      {user.phone && (
+                        <div className="text-sm text-muted-foreground">{user.phone}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddStaffOpen(false)}>
               Cancel
             </Button>
-            <Button>Add Staff</Button>
+            <Button onClick={handleAddStaff} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Add Staff
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -721,14 +1042,53 @@ export function FPODetail() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Search Farmer *</Label>
-              <Input placeholder="Search by name or phone..." />
+              <Input
+                placeholder="Search by name or phone..."
+                value={memberForm.userSearch}
+                onChange={(e) => {
+                  setMemberForm({ ...memberForm, userSearch: e.target.value });
+                  searchUsersDebounced(e.target.value);
+                }}
+              />
+              {userSearchLoading && (
+                <div className="text-sm text-muted-foreground">Searching...</div>
+              )}
+              {userSearchResults.length > 0 && (
+                <div className="border rounded-md max-h-40 overflow-auto">
+                  {userSearchResults
+                    .filter((u) => u.type === "farmer")
+                    .map((user) => (
+                      <div
+                        key={user.id}
+                        className={`p-2 cursor-pointer hover:bg-muted ${
+                          memberForm.userId === user.id ? "bg-muted" : ""
+                        }`}
+                        onClick={() =>
+                          setMemberForm({
+                            ...memberForm,
+                            userId: user.id,
+                            userSearch: user.name,
+                          })
+                        }
+                      >
+                        <div className="font-medium">{user.name}</div>
+                        {user.phone && (
+                          <div className="text-sm text-muted-foreground">{user.phone}</div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddMemberOpen(false)}>
               Cancel
             </Button>
-            <Button>Add Member</Button>
+            <Button onClick={handleAddMember} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Add Member
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -745,11 +1105,18 @@ export function FPODetail() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Document Name *</Label>
-              <Input placeholder="e.g., Registration Certificate 2024" />
+              <Input
+                placeholder="e.g., Registration Certificate 2024"
+                value={docForm.name}
+                onChange={(e) => setDocForm({ ...docForm, name: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
               <Label>Type *</Label>
-              <Select>
+              <Select
+                value={docForm.type}
+                onValueChange={(v) => setDocForm({ ...docForm, type: v })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -763,8 +1130,20 @@ export function FPODetail() {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>Description</Label>
+              <Input
+                placeholder="Optional description"
+                value={docForm.description}
+                onChange={(e) => setDocForm({ ...docForm, description: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
               <Label>File URL *</Label>
-              <Input placeholder="https://drive.google.com/..." />
+              <Input
+                placeholder="https://drive.google.com/..."
+                value={docForm.fileUrl}
+                onChange={(e) => setDocForm({ ...docForm, fileUrl: e.target.value })}
+              />
               <p className="text-xs text-muted-foreground">
                 Paste a Google Drive or other cloud storage link
               </p>
@@ -774,7 +1153,40 @@ export function FPODetail() {
             <Button variant="outline" onClick={() => setUploadDocOpen(false)}>
               Cancel
             </Button>
-            <Button>Upload</Button>
+            <Button onClick={handleUploadDocument} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Coverage Dialog */}
+      <Dialog open={addCoverageOpen} onOpenChange={setAddCoverageOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Coverage Area</DialogTitle>
+            <DialogDescription>
+              Select the region where this FPO operates
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <CoverageSelector
+              value={coverageForm}
+              onChange={setCoverageForm}
+              showDistrict={true}
+              showBlock={true}
+              showVillage={true}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddCoverageOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddCoverage} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Add Coverage
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

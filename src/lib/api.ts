@@ -289,10 +289,11 @@ export async function deleteFPO(id: string) {
   return apiFetch(`/admin/fpos/${id}`, { method: "DELETE" });
 }
 
-export async function getFPOMembers(fpoId: string, params?: { page?: number; limit?: number }) {
+export async function getFPOMembers(fpoId: string, params?: { page?: number; limit?: number; membershipType?: 'member' | 'associated' }) {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.membershipType) query.set("membershipType", params.membershipType);
   return apiFetch(`/admin/fpos/${fpoId}/members?${query}`);
 }
 
@@ -696,4 +697,124 @@ export async function getBlocksByDistrictId(districtId: string) {
 
 export async function getVillagesByBlockId(blockId: string) {
   return apiFetch<{ success: boolean; data: Array<{ id: string; name: string }> }>(`/admin/locations/villages?block=${blockId}`);
+}
+
+// ============================================
+// FPO Staff
+// ============================================
+
+export type FpoStaff = {
+  id: string;
+  staffRole: string;
+  isActive: boolean;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    nameLocal?: string;
+    phone?: string;
+    email?: string;
+    type: string;
+  };
+};
+
+export async function getFpoStaff(fpoId: string) {
+  return apiFetch<{ success: boolean; data: { staff: FpoStaff[] } }>(`/admin/fpos/${fpoId}/staff`);
+}
+
+export async function addFpoStaff(fpoId: string, data: { userId: string; staffRole: string }) {
+  return apiFetch<{ success: boolean; data: { staff: FpoStaff } }>(`/admin/fpos/${fpoId}/staff`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateFpoStaff(fpoId: string, staffId: string, data: { staffRole: string }) {
+  return apiFetch<{ success: boolean; data: { staff: FpoStaff } }>(`/admin/fpos/${fpoId}/staff/${staffId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function removeFpoStaff(fpoId: string, staffId: string) {
+  return apiFetch<{ success: boolean }>(`/admin/fpos/${fpoId}/staff/${staffId}`, { method: "DELETE" });
+}
+
+// ============================================
+// Independent Farmers
+// ============================================
+
+export type IndependentFarmer = {
+  id: string;
+  name: string;
+  nameLocal?: string;
+  phone?: string;
+  email?: string;
+  type: string;
+  createdAt: string;
+  village?: {
+    id: string;
+    name: string;
+    block: {
+      id: string;
+      name: string;
+      district: {
+        id: string;
+        name: string;
+        state: {
+          id: string;
+          code: string;
+          name: string;
+        };
+      };
+    };
+  };
+};
+
+export async function getIndependentFarmers(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  countryCode?: string;
+  stateCode?: string;
+  districtId?: string;
+}) {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.search) query.set("search", params.search);
+  if (params?.countryCode) query.set("countryCode", params.countryCode);
+  if (params?.stateCode) query.set("stateCode", params.stateCode);
+  if (params?.districtId) query.set("districtId", params.districtId);
+  return apiFetch<{
+    success: boolean;
+    data: {
+      farmers: IndependentFarmer[];
+      pagination: { page: number; limit: number; total: number; pages: number };
+    };
+  }>(`/admin/users/farmers/independent?${query}`);
+}
+
+export async function associateFarmerWithFpo(userId: string, fpoId: string, membershipType: 'member' | 'associated' = 'associated') {
+  return apiFetch<{ success: boolean; data: unknown }>(`/admin/users/farmers/${userId}/associate`, {
+    method: "POST",
+    body: JSON.stringify({ fpoId, membershipType }),
+  });
+}
+
+// ============================================
+// Search users for staff/member selection
+// ============================================
+
+export async function searchUsers(params: {
+  search: string;
+  type?: string;
+  limit?: number;
+}) {
+  const query = new URLSearchParams();
+  query.set("search", params.search);
+  if (params.type) query.set("type", params.type);
+  query.set("limit", String(params.limit || 10));
+  // Use the existing users endpoint with search
+  return getUsers({ type: params.type, limit: params.limit || 10 });
 }

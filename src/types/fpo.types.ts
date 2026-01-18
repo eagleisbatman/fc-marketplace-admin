@@ -33,6 +33,7 @@ export type FPO = {
 export type FPOMember = {
   id: string;
   role: string;
+  membershipType?: "member" | "associated";
   joinedAt: string;
   user: {
     id: string;

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Building2,
   Users,
@@ -28,6 +29,8 @@ import {
   ChevronRight,
   Phone,
   MapPin,
+  UserCheck,
+  UserPlus,
 } from "lucide-react";
 import { getFPOs, getFPOMembers } from "@/lib/api";
 import type { FPO, FPOMember } from "@/types/fpo.types";
@@ -42,8 +45,10 @@ export function Farmers() {
   // Selected FPO and members
   const [selectedFpo, setSelectedFpo] = useState<FPO | null>(null);
   const [members, setMembers] = useState<FPOMember[]>([]);
+  const [associated, setAssociated] = useState<FPOMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [farmerSearch, setFarmerSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"members" | "associated">("members");
 
   const [error, setError] = useState<string | null>(null);
 
@@ -63,9 +68,9 @@ export function Farmers() {
     try {
       setFposLoading(true);
       setError(null);
-      const response = await getFPOs({ page: 1, limit: 1000 }) as {
+      const response = (await getFPOs({ page: 1, limit: 1000 })) as {
         success: boolean;
-        data?: { fpos: FPO[] }
+        data?: { fpos: FPO[] };
       };
       if (response.success && response.data) {
         setFpos(response.data.fpos);
@@ -82,13 +87,16 @@ export function Farmers() {
   const loadMembers = async (fpoId: string) => {
     try {
       setMembersLoading(true);
-      const response = await getFPOMembers(fpoId) as {
+      // Load all members, then split by membershipType
+      const response = (await getFPOMembers(fpoId)) as {
         success: boolean;
-        data?: { members: FPOMember[] }
+        data?: { members: FPOMember[] };
       };
       if (response.success && response.data) {
-        // Filter to only show farmers (role === 'member')
-        setMembers(response.data.members.filter((m) => m.role === "member"));
+        const allMembers = response.data.members;
+        // Split by membershipType - 'member' = official members, 'associated' = associated farmers
+        setMembers(allMembers.filter((m) => m.membershipType !== "associated"));
+        setAssociated(allMembers.filter((m) => m.membershipType === "associated"));
       }
     } catch (err) {
       console.error("Failed to load members:", err);
@@ -101,12 +109,15 @@ export function Farmers() {
   const handleSelectFpo = (fpo: FPO) => {
     setSelectedFpo(fpo);
     setFarmerSearch("");
+    setActiveTab("members");
   };
 
   const handleBackToList = () => {
     setSelectedFpo(null);
     setMembers([]);
+    setAssociated([]);
     setFarmerSearch("");
+    setActiveTab("members");
   };
 
   // Filter FPOs by search
@@ -119,14 +130,17 @@ export function Farmers() {
       )
     : fpos;
 
+  // Get current list based on active tab
+  const currentList = activeTab === "members" ? members : associated;
+
   // Filter farmers by search
-  const filteredMembers = farmerSearch
-    ? members.filter(
+  const filteredFarmers = farmerSearch
+    ? currentList.filter(
         (m) =>
           m.user.name.toLowerCase().includes(farmerSearch.toLowerCase()) ||
           m.user.phone?.toLowerCase().includes(farmerSearch.toLowerCase())
       )
-    : members;
+    : currentList;
 
   const formatLocation = (fpo: FPO): string => {
     if (!fpo.village) return "No location";
@@ -193,7 +207,9 @@ export function Farmers() {
             <div className="space-y-2">
               {filteredFpos.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  {fpoSearch ? "No FPOs found matching your search" : "No FPOs available"}
+                  {fpoSearch
+                    ? "No FPOs found matching your search"
+                    : "No FPOs available"}
                 </div>
               ) : (
                 filteredFpos.map((fpo) => (
@@ -248,93 +264,145 @@ export function Farmers() {
         </Button>
         <div>
           <h1 className="text-3xl font-bold">{selectedFpo.name}</h1>
-          <p className="text-muted-foreground">
-            {formatLocation(selectedFpo)}
-          </p>
+          <p className="text-muted-foreground">{formatLocation(selectedFpo)}</p>
         </div>
       </div>
 
-      {/* Farmers Card */}
+      {/* Farmers Card with Tabs */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Farmers ({members.length})
+            Farmers
           </CardTitle>
           <CardDescription>
-            Members registered as farmers in this FPO
+            View members and associated farmers of this FPO
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Search */}
-          <div className="flex items-center gap-2 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search farmers by name or phone..."
-                value={farmerSearch}
-                onChange={(e) => setFarmerSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => {
+              setActiveTab(v as "members" | "associated");
+              setFarmerSearch("");
+            }}
+          >
+            <TabsList className="mb-4">
+              <TabsTrigger value="members" className="flex items-center gap-2">
+                <UserCheck className="h-4 w-4" />
+                Members ({members.length})
+              </TabsTrigger>
+              <TabsTrigger value="associated" className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Associated ({associated.length})
+              </TabsTrigger>
+            </TabsList>
 
-          {membersLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : filteredMembers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {farmerSearch
-                ? "No farmers found matching your search"
-                : "No farmers in this FPO"}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Joined</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredMembers.map((member) => (
-                  <TableRow key={member.user.id}>
-                    <TableCell>
-                      <div className="font-medium">{member.user.name}</div>
-                      {member.user.nameLocal && (
-                        <div className="text-sm text-muted-foreground">
-                          {member.user.nameLocal}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {member.user.phone ? (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {member.user.phone}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {member.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(member.joinedAt).toLocaleDateString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+            <TabsContent value="members">
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Official FPO members who are registered farmers
+                </p>
+                {renderFarmersList()}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="associated">
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Farmers who route their interests through this FPO but are not
+                  official members
+                </p>
+                {renderFarmersList()}
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
   );
+
+  function renderFarmersList() {
+    return (
+      <>
+        {/* Search */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search farmers by name or phone..."
+              value={farmerSearch}
+              onChange={(e) => setFarmerSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
+
+        {membersLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredFarmers.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            {farmerSearch
+              ? "No farmers found matching your search"
+              : activeTab === "members"
+                ? "No members in this FPO"
+                : "No associated farmers in this FPO"}
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Joined</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredFarmers.map((member) => (
+                <TableRow key={member.user.id}>
+                  <TableCell>
+                    <div className="font-medium">{member.user.name}</div>
+                    {member.user.nameLocal && (
+                      <div className="text-sm text-muted-foreground">
+                        {member.user.nameLocal}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {member.user.phone ? (
+                      <span className="flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
+                        {member.user.phone}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        member.membershipType === "associated"
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      {member.membershipType === "associated"
+                        ? "Associated"
+                        : "Member"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(member.joinedAt).toLocaleDateString()}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </>
+    );
+  }
 }

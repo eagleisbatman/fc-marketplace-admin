@@ -41,6 +41,7 @@ import {
   ChevronRight,
   Globe,
   Menu,
+  UserX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +69,7 @@ const navSections: NavSection[] = [
     items: [
       { path: "/dashboard/fpos", label: "FPOs", icon: Building2 },
       { path: "/dashboard/farmers", label: "Farmers", icon: Users },
+      { path: "/dashboard/independent-farmers", label: "Independent Farmers", icon: UserX },
     ],
   },
   {

@@ -11,6 +11,7 @@ import { Users } from "@/pages/Users";
 import { FPOs } from "@/pages/FPOs";
 import { FPODetail } from "@/pages/FPODetail";
 import { Farmers } from "@/pages/Farmers";
+import { IndependentFarmers } from "@/pages/IndependentFarmers";
 import { Providers } from "@/pages/Providers";
 import { Brands } from "@/pages/Brands";
 import { Products } from "@/pages/Products";
@@ -113,6 +114,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Farmers />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/independent-farmers"
+        element={
+          <ProtectedRoute>
+            <IndependentFarmers />
           </ProtectedRoute>
         }
       />

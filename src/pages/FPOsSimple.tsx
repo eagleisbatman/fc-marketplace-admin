@@ -31,7 +31,7 @@ import {
   ChevronRight,
   RefreshCw,
 } from "lucide-react";
-import { getFPOs } from "@/lib/api";
+import { getFPOs, createFPO } from "@/lib/api";
 import type { FPO } from "@/types/fpo.types";
 import { toast } from "sonner";
 import { CoverageSelector, type CoverageValue } from "@/components/CoverageSelector";
@@ -89,21 +89,38 @@ export function FPOsSimple() {
 
     setSaving(true);
     try {
-      // TODO: Call create API
-      toast.success("FPO created successfully");
-      setCreateOpen(false);
-      setCreateForm({
-        name: "",
-        nameLocal: "",
-        registrationNumber: "",
-        phone: "",
-        email: "",
-        address: "",
-      });
-      setCreateLocation({});
-      loadFPOs();
+      const response = await createFPO({
+        name: createForm.name.trim(),
+        nameLocal: createForm.nameLocal?.trim() || undefined,
+        registrationNumber: createForm.registrationNumber?.trim() || undefined,
+        phone: createForm.phone?.trim() || undefined,
+        email: createForm.email?.trim() || undefined,
+        address: createForm.address?.trim() || undefined,
+        villageId: createLocation.villageId || undefined,
+      }) as { success: boolean; data?: { fpo: FPO } };
+
+      if (response.success) {
+        toast.success("FPO created successfully");
+        setCreateOpen(false);
+        setCreateForm({
+          name: "",
+          nameLocal: "",
+          registrationNumber: "",
+          phone: "",
+          email: "",
+          address: "",
+        });
+        setCreateLocation({});
+        loadFPOs();
+
+        // Navigate to the new FPO detail page if we have the ID
+        if (response.data?.fpo?.id) {
+          navigate(`/dashboard/fpos/${response.data.fpo.id}`);
+        }
+      }
     } catch (err) {
-      toast.error("Failed to create FPO");
+      console.error("Failed to create FPO:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to create FPO");
     } finally {
       setSaving(false);
     }
