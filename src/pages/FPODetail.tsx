@@ -165,10 +165,10 @@ export function FPODetail() {
       setError(null);
       const response = (await getFPO(id!)) as {
         success: boolean;
-        data?: { fpo: FPO };
+        data?: FPO;
       };
       if (response.success && response.data) {
-        setFpo(response.data.fpo);
+        setFpo(response.data);
       }
     } catch (err) {
       console.error("Failed to load FPO:", err);
