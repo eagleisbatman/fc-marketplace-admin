@@ -8,7 +8,7 @@ import { Login } from "@/pages/Login";
 import { Dashboard } from "@/pages/Dashboard";
 import { Import } from "@/pages/Import";
 import { Users } from "@/pages/Users";
-import { FPOs } from "@/pages/FPOs";
+import { FPOsSimple as FPOs } from "@/pages/FPOsSimple";
 import { FPODetail } from "@/pages/FPODetail";
 import { Farmers } from "@/pages/Farmers";
 import { IndependentFarmers } from "@/pages/IndependentFarmers";
