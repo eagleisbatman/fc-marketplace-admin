@@ -67,7 +67,7 @@ const navSections: NavSection[] = [
     title: "FPO Management",
     items: [
       { path: "/dashboard/fpos", label: "FPOs", icon: Building2 },
-      { path: "/dashboard/users", label: "Farmers", icon: Users },
+      { path: "/dashboard/farmers", label: "Farmers", icon: Users },
     ],
   },
   {
