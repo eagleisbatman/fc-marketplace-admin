@@ -71,6 +71,7 @@ import {
   removeFPOMember,
   getUsers,
   importUsers,
+  updateFPO,
   type FpoStaff,
   type FpoDocument,
   type CoverageArea,
@@ -128,6 +129,7 @@ export function FPODetail() {
   const [uploadDocOpen, setUploadDocOpen] = useState(false);
   const [addCoverageOpen, setAddCoverageOpen] = useState(false);
   const [uploadFarmersOpen, setUploadFarmersOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   // Upload farmers state
   const [uploadFileName, setUploadFileName] = useState("");
@@ -141,6 +143,14 @@ export function FPODetail() {
   const [memberForm, setMemberForm] = useState({ userId: "", userSearch: "", membershipType: "member" as "member" | "associated" });
   const [docForm, setDocForm] = useState({ name: "", type: "registration_certificate", description: "", fileUrl: "" });
   const [coverageForm, setCoverageForm] = useState<CoverageValue>({});
+  const [editForm, setEditForm] = useState({
+    name: "",
+    nameLocal: "",
+    registrationNumber: "",
+    phone: "",
+    email: "",
+    address: "",
+  });
 
   // User search results
   const [userSearchResults, setUserSearchResults] = useState<Array<{ id: string; name: string; phone?: string; type?: string }>>([]);
@@ -395,6 +405,44 @@ export function FPODetail() {
     }
   };
 
+  const handleOpenEdit = () => {
+    if (!fpo) return;
+    setEditForm({
+      name: fpo.name,
+      nameLocal: fpo.nameLocal || "",
+      registrationNumber: fpo.registrationNumber || "",
+      phone: fpo.phone || "",
+      email: fpo.email || "",
+      address: fpo.address || "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editForm.name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateFPO(id!, {
+        name: editForm.name.trim(),
+        nameLocal: editForm.nameLocal.trim() || undefined,
+        registrationNumber: editForm.registrationNumber.trim() || undefined,
+        phone: editForm.phone.trim() || undefined,
+        email: editForm.email.trim() || undefined,
+        address: editForm.address.trim() || undefined,
+      });
+      toast.success("FPO updated");
+      setEditOpen(false);
+      loadFPO();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update FPO");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Farmer upload handlers
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -549,7 +597,7 @@ export function FPODetail() {
             </div>
           </div>
         </div>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" onClick={handleOpenEdit}>
           <Pencil className="mr-2 h-4 w-4" />
           Edit
         </Button>
@@ -1389,6 +1437,80 @@ export function FPODetail() {
             <Button onClick={handleAddCoverage} disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Add Coverage
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit FPO Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit FPO</DialogTitle>
+            <DialogDescription>
+              Update FPO details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name *</Label>
+              <Input
+                placeholder="FPO Name"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Local Name</Label>
+              <Input
+                placeholder="Name in local language"
+                value={editForm.nameLocal}
+                onChange={(e) => setEditForm({ ...editForm, nameLocal: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Registration Number</Label>
+              <Input
+                placeholder="Registration number"
+                value={editForm.registrationNumber}
+                onChange={(e) => setEditForm({ ...editForm, registrationNumber: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input
+                  placeholder="Phone number"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  placeholder="Email address"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Address</Label>
+              <Input
+                placeholder="Address"
+                value={editForm.address}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
