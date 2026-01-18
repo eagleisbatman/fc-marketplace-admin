@@ -279,7 +279,7 @@ export function CoverageSelector({
             )}
           </SelectTrigger>
           <SelectContent>
-            {states.map((state) => (
+            {states.filter((state) => state.id).map((state) => (
               <SelectItem key={state.id} value={state.id}>
                 {state.name}
               </SelectItem>
@@ -329,7 +329,7 @@ export function CoverageSelector({
                   No districts found
                 </div>
               ) : (
-                displayDistricts.map((district) => (
+                displayDistricts.filter((d) => d.id).map((district) => (
                   <SelectItem key={district.id} value={district.id}>
                     {district.name}
                   </SelectItem>
@@ -386,7 +386,7 @@ export function CoverageSelector({
                   No blocks found
                 </div>
               ) : (
-                displayBlocks.map((block) => (
+                displayBlocks.filter((b) => b.id).map((block) => (
                   <SelectItem key={block.id} value={block.id}>
                     {block.name}
                   </SelectItem>
@@ -443,7 +443,7 @@ export function CoverageSelector({
                   No villages found
                 </div>
               ) : (
-                displayVillages.map((village) => (
+                displayVillages.filter((v) => v.id).map((village) => (
                   <SelectItem key={village.id} value={village.id}>
                     {village.name}
                   </SelectItem>
